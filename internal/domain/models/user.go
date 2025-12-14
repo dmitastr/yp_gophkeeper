@@ -17,5 +17,5 @@ type User struct {
 }
 
 func (u *User) ToNamedArgs() pgx.NamedArgs {
-	return pgx.NamedArgs{"name": u.Username, "hash": u.Hash, "created_at": time.Now()}
+	return pgx.NamedArgs{"username": u.Username, "password_hash": u.Hash, "created_at": time.Now()}
 }

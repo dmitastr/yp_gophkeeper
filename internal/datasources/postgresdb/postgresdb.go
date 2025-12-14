@@ -49,12 +49,12 @@ func NewPostgresStorage(ctx context.Context, cfg config.ConfigProvider) (*Postgr
 	}
 	cfg.Logger().Info("Database migration succeeded")
 
-	return &PostgresStorage{pool: pool}, nil
+	return &PostgresStorage{pool: pool, cfg: cfg}, nil
 }
 
 func (p *PostgresStorage) AddUser(ctx context.Context, user *models.User) error {
-	p.cfg.Logger().Info("AddUser called", zap.String("username", user.Username), zap.String("password", user.Password))
-	query := `INSERT INTO users (username, password_hash, created_at) VALUES (@name, @hash, @created_at)`
+	p.cfg.Logger().Info("RegisterUser called", zap.String("username", user.Username), zap.String("password", user.Password))
+	query := `INSERT INTO users (username, password_hash, created_at) VALUES (@username, @password_hash, @created_at)`
 
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
@@ -65,6 +65,10 @@ func (p *PostgresStorage) AddUser(ctx context.Context, user *models.User) error 
 		return fmt.Errorf("could not add user: %w", err)
 	}
 
+	if err := tx.Commit(ctx); err != nil {
+		tx.Rollback(ctx)
+		return fmt.Errorf("could not commit transaction: %w", err)
+	}
 	p.cfg.Logger().Info("Successfully add user")
 
 	return nil
@@ -73,7 +77,7 @@ func (p *PostgresStorage) AddUser(ctx context.Context, user *models.User) error 
 func (p *PostgresStorage) GetUser(ctx context.Context, username string) (*models.User, error) {
 	var user models.User
 	p.cfg.Logger().Info("GetUser called", zap.String("username", username))
-	query := `SELECT INTO user_id, username, password_hash, created_at FROM users WHERE username = $1`
+	query := `SELECT user_id, username, password_hash, created_at FROM users WHERE username = $1`
 
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"gophkeep/internal/agent/client"
+	"gophkeep/internal/agent/config"
 	"gophkeep/internal/agent/cryptomanager"
 )
 
@@ -47,11 +48,11 @@ func (a *Agent) Authenticate(username, password string, params *ConnParams) erro
 	}
 
 	fmt.Printf("Token is %s\n", *token)
-
-	tokenEncrypted, err := a.cryptoManager.Encrypt(token, []byte(params.Key))
-	if err != nil {
-		return err
-	}
+	//
+	// tokenEncrypted, err := a.cryptoManager.Encrypt(token, []byte(params.Key))
+	// if err != nil {
+	// 	return err
+	// }
 
 	file, err := os.Create("agent_config.json")
 	if err != nil {
@@ -59,7 +60,8 @@ func (a *Agent) Authenticate(username, password string, params *ConnParams) erro
 	}
 	defer file.Close()
 
-	if err := json.NewEncoder(file).Encode(ProfileConfig{Token: tokenEncrypted}); err != nil {
+	cfg := &config.Config{Token: *token, Address: params.Address}
+	if err := json.NewEncoder(file).Encode(cfg); err != nil {
 		return err
 	}
 
@@ -67,12 +69,12 @@ func (a *Agent) Authenticate(username, password string, params *ConnParams) erro
 }
 
 func (a *Agent) Ping(params *ConnParams) error {
-	tokenDecrypted, err := a.cryptoManager.Decrypt(&params.Token, []byte(params.Key))
-	if err != nil {
-		return fmt.Errorf("error decrypting Token: %s", err)
-	}
+	// tokenDecrypted, err := a.cryptoManager.Decrypt(&params.Token, []byte(params.Key))
+	// if err != nil {
+	// 	return fmt.Errorf("error decrypting Token: %s", err)
+	// }
 
-	err = a.connClient.Ping(tokenDecrypted, params.Address)
+	err := a.connClient.Ping(params.Token, params.Address)
 	if err != nil {
 		return fmt.Errorf("error pinging agent: %s", err)
 	}
@@ -81,13 +83,13 @@ func (a *Agent) Ping(params *ConnParams) error {
 }
 
 func (a *Agent) AddPassword(login, password string, params *ConnParams) error {
-	tokenDecrypted, err := a.cryptoManager.Decrypt(&params.Token, []byte(params.Key))
+	// tokenDecrypted, err := a.cryptoManager.Decrypt(&params.Token, []byte(params.Key))
+	//
+	// if err != nil {
+	// 	return fmt.Errorf("error decrypting Token: %s", err)
+	// }
 
-	if err != nil {
-		return fmt.Errorf("error decrypting Token: %s", err)
-	}
-
-	err = a.connClient.AddPassword(tokenDecrypted, params.Address, login, password)
+	err := a.connClient.AddPassword(params.Token, params.Address, login, password)
 	if err != nil {
 		return fmt.Errorf("error pinging agent: %s", err)
 	}

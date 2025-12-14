@@ -24,7 +24,7 @@ func NewDummyDS(cfg config.ConfigProvider) Datasource {
 }
 
 func (d dummyDS) AddUser(ctx context.Context, user *models.User) error {
-	d.cfg.Logger().Info("AddUser called", zap.String("username", user.Username), zap.String("password", user.Password))
+	d.cfg.Logger().Info("RegisterUser called", zap.String("username", user.Username), zap.String("password", user.Password))
 
 	return nil
 }

@@ -19,7 +19,7 @@ type AuthCmd struct {
 func NewAuthCmd(deps RootDeps) *cobra.Command {
 	authCmd := &cobra.Command{
 		Use:   "auth",
-		Long:  "Authenticate via login and password",
+		Long:  "RegisterUser via login and password",
 		Short: "get auth data",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			username := viper.GetString("username")

@@ -106,7 +106,7 @@ func (c *Client) Authenticate(body *AuthRequest, address string) (*string, error
 }
 
 func (c *Client) Ping(bearerToken string, address string) error {
-	reqBuilder, err := NewRequestBuilder(http.MethodPost, address, "/api/ping")
+	reqBuilder, err := NewRequestBuilder(http.MethodGet, address, "/api/ping")
 	if err != nil {
 		return err
 	}

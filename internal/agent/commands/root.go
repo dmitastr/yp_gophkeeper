@@ -6,14 +6,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gophkeep/internal/agent/agent"
+	"gophkeep/internal/agent/config"
 )
 
 type RootDeps struct {
 	NewAgent func() agent.IAgent
-}
-
-type Config struct {
-	Token string `mapstructure:"token" json:"token"`
 }
 
 func NewCmd(deps RootDeps) *cobra.Command {
@@ -51,8 +48,8 @@ to quickly create a Cobra application.`,
 		panic(err)
 	}
 
-	var config Config
-	err = viper.Unmarshal(&config)
+	var cfg config.Config
+	err = viper.Unmarshal(&cfg)
 	if err != nil {
 		panic(err)
 	}
