@@ -69,12 +69,16 @@ func (app *App) Stop(ctx context.Context) error {
 
 func (app *App) registerHandlers(router *gin.Engine, h handlers.HandlersProvider, m middleware.MiddlewareProvider) error {
 	apiPath := router.Group("/api")
-	apiPath.POST(`/auth`, h.Authenticate)
+	apiPath.POST(`/login`, h.LoginUser)
+	apiPath.POST(`/auth`, h.RegisterUser)
 	apiPath.GET(`/ping`, m.VerifyJWT, h.Ping)
 
 	secretsPath := apiPath.Group("/secrets", m.VerifyJWT)
 
-	secretsPath.POST(`/passwords`, m.VerifyJWT, h.AddPassword)
+	secretsPath.POST(`/`, h.AddSecret)
+	secretsPath.GET(`/`, h.GetAllSecrets)
+	secretsPath.GET(`/:secretID`, h.GetSecret)
+	secretsPath.POST(`/passwords`, h.AddPassword)
 
 	return nil
 }

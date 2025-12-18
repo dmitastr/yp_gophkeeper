@@ -11,7 +11,8 @@ import (
 )
 
 type AuthHandler interface {
-	Authenticate(*gin.Context)
+	LoginUser(*gin.Context)
+	RegisterUser(*gin.Context)
 }
 
 type AuthHandlerImpl struct {
@@ -23,14 +24,30 @@ func NewAuthHandler(cfg config.ConfigProvider, serviceProvider service.IService)
 	return &AuthHandlerImpl{serviceProvider: serviceProvider, cfg: cfg}
 }
 
-func (a *AuthHandlerImpl) Authenticate(c *gin.Context) {
+func (a *AuthHandlerImpl) RegisterUser(c *gin.Context) {
 	var request params.AuthRequestObject
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	token, err := a.serviceProvider.Authenticate(request)
+	token, err := a.serviceProvider.RegisterUser(request)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		a.cfg.Logger().Error("error while creating auth token", zap.Error(err))
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"token": token})
+}
+
+func (a *AuthHandlerImpl) LoginUser(c *gin.Context) {
+	var request params.AuthRequestObject
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	token, err := a.serviceProvider.LoginUser(request)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		a.cfg.Logger().Error("error while creating auth token", zap.Error(err))

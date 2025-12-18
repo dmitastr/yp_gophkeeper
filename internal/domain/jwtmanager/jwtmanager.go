@@ -6,7 +6,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"gophkeep/internal/config"
-	"gophkeep/internal/domain/models"
+	"gophkeep/internal/core/models"
 )
 
 type Manager interface {
@@ -29,8 +29,8 @@ func New(cfg config.ConfigProvider) *JWTManager {
 
 func (manager *JWTManager) IssueJWT(user *models.User) (string, error) {
 	claims := Claims{
-		user.ID,
-		jwt.RegisteredClaims{
+		UserID: user.ID,
+		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   user.Username,
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
