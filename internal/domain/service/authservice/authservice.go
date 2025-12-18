@@ -6,10 +6,10 @@ import (
 	"fmt"
 
 	"gophkeep/internal/config"
+	"gophkeep/internal/core/models"
 	"gophkeep/internal/datasources"
 	"gophkeep/internal/domain/hashvalidator"
 	"gophkeep/internal/domain/jwtmanager"
-	"gophkeep/internal/domain/models"
 	"gophkeep/internal/presentation/params"
 )
 
@@ -57,11 +57,12 @@ func (a *AuthServiceImpl) LoginUser(object params.AuthRequestObject) (string, er
 
 func (a *AuthServiceImpl) RegisterUser(object params.AuthRequestObject) (string, error) {
 	user := &models.User{Username: object.Username, Hash: a.hash.CalculateHash(object.Password)}
-	if err := a.db.AddUser(context.TODO(), user); err != nil {
+	userAdded, err := a.db.AddUser(context.TODO(), user)
+	if err != nil {
 		return "", fmt.Errorf("add user error: %w", err)
 	}
 
-	token, err := a.manager.IssueJWT(user)
+	token, err := a.manager.IssueJWT(userAdded)
 	if err != nil {
 		return "", fmt.Errorf("issue token: %w", err)
 	}

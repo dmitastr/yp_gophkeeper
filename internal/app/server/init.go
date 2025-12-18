@@ -75,7 +75,10 @@ func (app *App) registerHandlers(router *gin.Engine, h handlers.HandlersProvider
 
 	secretsPath := apiPath.Group("/secrets", m.VerifyJWT)
 
-	secretsPath.POST(`/passwords`, m.VerifyJWT, h.AddPassword)
+	secretsPath.POST(`/`, h.AddSecret)
+	secretsPath.GET(`/`, h.GetAllSecrets)
+	secretsPath.GET(`/:secretID`, h.GetSecret)
+	secretsPath.POST(`/passwords`, h.AddPassword)
 
 	return nil
 }

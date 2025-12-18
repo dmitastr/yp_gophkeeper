@@ -8,7 +8,7 @@ import (
 	"gophkeep/internal/agent/agent"
 )
 
-func NewPasswordsCmd(deps RootDeps) *cobra.Command {
+func NewPasswordsCmd(deps agent.RootDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "passwords",
 		Long:  "Add new password",
@@ -34,8 +34,7 @@ func NewPasswordsCmd(deps RootDeps) *cobra.Command {
 	_ = viper.BindPFlag("login", cmd.Flags().Lookup("login"))
 	_ = viper.BindPFlag("password", cmd.Flags().Lookup("password"))
 
-	// Bind to environment variable AUTH_USERNAME
-	viper.SetEnvPrefix("AUTH") // ENV prefix: AUTH_
+	viper.SetEnvPrefix("GOPHKEEPER")
 	_ = viper.BindEnv("password")
 	_ = viper.BindEnv("login")
 

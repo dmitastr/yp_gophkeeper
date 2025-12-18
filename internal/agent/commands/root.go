@@ -9,37 +9,24 @@ import (
 	"gophkeep/internal/agent/config"
 )
 
-type RootDeps struct {
-	NewAgent func() agent.IAgent
-}
-
-func NewCmd(deps RootDeps) *cobra.Command {
+func NewCmd(deps agent.RootDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cobra",
-		Short: "A brief description of your application",
-		Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+		Short: "Root cobra command",
+		Long: `Gophkeeper is a CLI library for Go for interaction with Gophkeeper application.
+			It allows to store and retrieve secrets.`,
 	}
 	cmd.PersistentFlags().StringP("key", "k", "", "key for encrypting token")
 	cmd.PersistentFlags().StringP("address", "a", "", "address for calling gophkeeper")
 
-	viper.SetEnvPrefix("AUTH") // ENV prefix: AUTH_
-	_ = viper.BindEnv("username")
+	viper.AutomaticEnv()
+
+	viper.SetEnvPrefix("GOPHKEEPER")
 	_ = viper.BindEnv("address")
-	// Bind flag to Viper
-	// Bind to environment variable AUTH_USERNAME
+	_ = viper.BindEnv("KEY")
+
 	_ = viper.BindPFlag("address", cmd.PersistentFlags().Lookup("address"))
 	_ = viper.BindPFlag("key", cmd.PersistentFlags().Lookup("key"))
-
-	// Bind to environment variable: APP_GLOBAL_OPT
-	viper.SetEnvPrefix("APP")
-	viper.AutomaticEnv()
-	_ = viper.BindEnv("KEY")
-	_ = viper.BindEnv("ADDRESS")
 
 	viper.SetConfigFile("agent_config.json")
 	err := viper.ReadInConfig()
@@ -54,12 +41,13 @@ to quickly create a Cobra application.`,
 		panic(err)
 	}
 
-	cmd.SilenceUsage = true
-	cmd.SilenceErrors = true
-
-	cmd.AddCommand(NewPingCmd(deps))
-	cmd.AddCommand(NewAuthCmd(deps))
-	cmd.AddCommand(NewPasswordsCmd(deps))
+	cmd.AddCommand(
+		NewPingCmd(deps),
+		NewLoginCmd(deps),
+		NewAuthCmd(deps),
+		NewPasswordsCmd(deps),
+		NewSecretsCmd(deps),
+	)
 
 	return cmd
 }

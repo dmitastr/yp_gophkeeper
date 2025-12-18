@@ -36,9 +36,13 @@ func (b *BearerValidatorImpl) VerifyJWT(c *gin.Context) {
 
 	username, _ := claims.GetSubject()
 	issuer, _ := claims.GetIssuer()
+	userID := claims.UserID
+
+	b.cfg.Logger().Info("Request from", zap.Int("userID", int(userID)), zap.String("username", username))
 
 	c.Set("username", username)
 	c.Set("issuer", issuer)
+	c.Set("userID", userID)
 
 	c.Next()
 }

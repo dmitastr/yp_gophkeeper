@@ -12,7 +12,7 @@ type PingCmd struct {
 	Cmd *cobra.Command
 }
 
-func NewPingCmd(deps RootDeps) *cobra.Command {
+func NewPingCmd(deps agent.RootDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ping",
 		Long:  "Ping service",

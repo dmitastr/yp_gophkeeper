@@ -8,13 +8,19 @@ import (
 	"github.com/spf13/viper"
 	"golang.org/x/term"
 	"gophkeep/internal/agent/agent"
+	"gophkeep/internal/agent/client"
 )
 
-func NewAuthCmd(deps agent.RootDeps) *cobra.Command {
-	authCmd := &cobra.Command{
-		Use:   "auth",
-		Long:  "RegisterUser via login and password",
-		Short: "get auth data",
+type LoginCmd struct {
+	Cmd *cobra.Command
+	c   *client.Client
+}
+
+func NewLoginCmd(deps agent.RootDeps) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "login",
+		Long:  "Login existing user",
+		Short: "login user",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			username := viper.GetString("username")
 			address := viper.GetString("address")
@@ -25,23 +31,23 @@ func NewAuthCmd(deps agent.RootDeps) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Println()
+			fmt.Println() // newline after password input
 
 			password := string(bytePassword)
 
 			connParams := &agent.ConnParams{Address: address, Key: key}
-			if err := deps.NewAgent().Authenticate(username, password, true, connParams); err != nil {
+			if err := deps.NewAgent().Authenticate(username, password, false, connParams); err != nil {
 				return fmt.Errorf("authentication failed: %w", err)
 			}
 			return nil
 		},
 	}
-	authCmd.Flags().StringP("username", "u", "", "username for auth call")
+	cmd.Flags().StringP("username", "u", "", "username for auth call")
 
-	_ = viper.BindPFlag("username", authCmd.Flags().Lookup("username"))
+	_ = viper.BindPFlag("username", cmd.Flags().Lookup("username"))
 
 	viper.SetEnvPrefix("GOPHKEEPER")
 	_ = viper.BindEnv("username")
 
-	return authCmd
+	return cmd
 }
