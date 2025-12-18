@@ -1,18 +1,18 @@
 package main
 
 import (
-	"os"
-
 	"gophkeep/internal/agent/agent"
 	"gophkeep/internal/agent/commands"
+	"gophkeep/internal/logger"
 )
 
 func main() {
-	root := commands.NewCmd(commands.RootDeps{
-		NewAgent: agent.NewAgent,
+	log := logger.NewLogger()
+	root := commands.NewCmd(agent.RootDeps{
+		Logger: log,
 	})
 
 	if err := root.Execute(); err != nil {
-		os.Exit(1)
+		panic(err)
 	}
 }
