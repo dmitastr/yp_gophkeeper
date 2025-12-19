@@ -91,7 +91,7 @@ func (p *PostgresStorage) GetUser(ctx context.Context, username string) (*models
 
 	if err := tx.QueryRow(ctx, query, username).Scan(&user.ID, &user.Username, &user.Hash, &user.CreatedAt); err != nil {
 		tx.Rollback(ctx)
-		return nil, fmt.Errorf("could not add user: %w", err)
+		return nil, fmt.Errorf("could not get user: %w", err)
 	}
 	tx.Commit(ctx)
 
@@ -149,7 +149,7 @@ func (p *PostgresStorage) GetSecret(ctx context.Context, secretID int, userID mo
 	err = tx.QueryRow(ctx, query, userID, secretID).Scan(&secret.ID, &secret.Type, &secret.CreatedAt, &secret.Content, &secret.Comment)
 	if err != nil {
 		tx.Rollback(ctx)
-		return nil, fmt.Errorf("could not add user: %w", err)
+		return nil, fmt.Errorf("could not get secret: %w", err)
 	}
 	tx.Commit(ctx)
 
@@ -171,7 +171,7 @@ func (p *PostgresStorage) GetAllSecrets(ctx context.Context, userID models.UserI
 	rows, err := tx.Query(ctx, query, userID)
 	if err != nil {
 		tx.Rollback(ctx)
-		return nil, fmt.Errorf("could not add user: %w", err)
+		return nil, fmt.Errorf("could not get all secrets: %w", err)
 	}
 
 	p.cfg.Logger().Info("Successfully get secrets")

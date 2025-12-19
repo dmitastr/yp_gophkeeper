@@ -10,13 +10,15 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
+	"gophkeep/internal/agent/compression"
 	"gophkeep/internal/core/models"
 	"gophkeep/internal/core/requests"
 	"gophkeep/internal/core/responses"
 )
 
 type RequestBuilder struct {
-	req *retryablehttp.Request
+	req        *retryablehttp.Request
+	compressor compression.ICompressor
 }
 
 func NewRequestBuilder(method, baseURL, suffix string) (*RequestBuilder, error) {
@@ -29,7 +31,7 @@ func NewRequestBuilder(method, baseURL, suffix string) (*RequestBuilder, error) 
 	if err != nil {
 		return nil, err
 	}
-	return &RequestBuilder{req: req}, nil
+	return &RequestBuilder{req: req, compressor: compression.NewCompressor()}, nil
 }
 
 func (r *RequestBuilder) WithBody(body interface{}) *RequestBuilder {
@@ -38,10 +40,33 @@ func (r *RequestBuilder) WithBody(body interface{}) *RequestBuilder {
 		panic(err)
 	}
 
-	return r.WithRawBody(data)
+	if r.compressor != nil {
+		data, err = r.compressor.Compress(data)
+		if err != nil {
+			panic(err)
+		}
+		r.req.Header.Set("Content-Encoding", "gzip")
+	}
+
+	r.req.Body = io.NopCloser(bytes.NewReader(data))
+	r.req.ContentLength = int64(len(data))
+	r.req.Header.Set("Content-Type", "application/json")
+
+	r.req.SetBody(data)
+
+	return r
 }
 
 func (r *RequestBuilder) WithRawBody(data []byte) *RequestBuilder {
+	if r.compressor != nil {
+		var err error
+		data, err = r.compressor.Compress(data)
+		if err != nil {
+			panic(err)
+		}
+		r.req.Header.Set("Content-Encoding", "gzip")
+	}
+
 	r.req.Body = io.NopCloser(bytes.NewReader(data))
 	r.req.ContentLength = int64(len(data))
 	r.req.Header.Set("Content-Type", "application/json")

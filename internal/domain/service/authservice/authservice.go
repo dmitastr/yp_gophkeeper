@@ -35,7 +35,6 @@ func (a *AuthServiceImpl) LoginUser(object params.AuthRequestObject) (string, er
 		return "", errors.New("invalid object")
 	}
 
-	user := &models.User{Username: object.Username, Password: object.Password}
 	userExisted, err := a.db.GetUser(context.TODO(), object.Username)
 	if err != nil {
 		return "", err
@@ -48,7 +47,7 @@ func (a *AuthServiceImpl) LoginUser(object params.AuthRequestObject) (string, er
 		return "", errors.New("invalid password")
 	}
 
-	token, err := a.manager.IssueJWT(user)
+	token, err := a.manager.IssueJWT(userExisted)
 	if err != nil {
 		return "", fmt.Errorf("issue token: %w", err)
 	}

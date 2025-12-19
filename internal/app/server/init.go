@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 	"gophkeep/internal/config"
 	"gophkeep/internal/datasources/postgresdb"
@@ -28,7 +29,6 @@ func NewApp(ctx context.Context, cfg config.ConfigProvider) (*App, error) {
 	app := &App{cfgProvider: cfg}
 	router := gin.Default()
 
-	// db := datasources.NewDummyDS(cfg)
 	db, err := postgresdb.NewPostgresStorage(context.TODO(), cfg)
 	if err != nil {
 		return nil, err
@@ -68,7 +68,10 @@ func (app *App) Stop(ctx context.Context) error {
 }
 
 func (app *App) registerHandlers(router *gin.Engine, h handlers.HandlersProvider, m middleware.MiddlewareProvider) error {
+	router.Use(gzip.Gzip(gzip.DefaultCompression, gzip.WithDecompressFn(gzip.DefaultDecompressHandle)))
 	apiPath := router.Group("/api")
+	// apiPath.Use(gzip.Gzip(gzip.DefaultCompression))
+
 	apiPath.POST(`/login`, h.LoginUser)
 	apiPath.POST(`/auth`, h.RegisterUser)
 	apiPath.GET(`/ping`, m.VerifyJWT, h.Ping)

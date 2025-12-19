@@ -1,7 +1,6 @@
 package secrets
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -47,32 +46,24 @@ func (h *SecretsHandlerImpl) AddPassword(ctx *gin.Context) {
 
 func (h *SecretsHandlerImpl) AddSecret(ctx *gin.Context) {
 	var request requests.SecretRequest
+	// body, _ := io.ReadAll(ctx.Request.Body)
+	// h.cfg.Logger().Info("Incoming request: ", zap.String("request", string(body)))
 	if err := ctx.ShouldBindJSON(&request); err != nil {
+		h.cfg.Logger().Error("error unmarshalling request", zap.Error(err))
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	switch tp := request.SecretType; tp {
-	case models.PASSWORD:
-		var passwordRequest models.PasswordRequestObject
-		if err := json.Unmarshal(request.Body, &passwordRequest); err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		h.cfg.Logger().Info("Add secret endpoint called", zap.String("type", string(request.SecretType)), zap.String("comment", request.Comment))
+	h.cfg.Logger().Info("Add secret endpoint called", zap.String("type", string(request.SecretType)), zap.String("comment", request.Comment))
 
-		secret := models.Secret{
-			Type:    request.SecretType,
-			Content: request.Body,
-			Comment: request.Comment,
-		}
-		if err := h.serviceProvider.AddSecret(ctx, &secret); err != nil {
-			h.cfg.Logger().Error(err.Error())
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-	default:
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "secret type not supported"})
+	secret := models.Secret{
+		Type:    request.SecretType,
+		Content: request.Body,
+		Comment: request.Comment,
+	}
+	if err := h.serviceProvider.AddSecret(ctx, &secret); err != nil {
+		h.cfg.Logger().Error(err.Error())
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
