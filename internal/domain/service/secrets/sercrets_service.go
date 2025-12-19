@@ -3,7 +3,9 @@ package secrets
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"unicode/utf8"
 
 	"go.uber.org/zap"
 	"gophkeep/internal/config"
@@ -55,6 +57,10 @@ func (s secretsService) AddPassword(ctx context.Context, object *models.Password
 func (s secretsService) AddSecret(ctx context.Context, object *models.Secret) error {
 	s.cfg.Logger().Info("Receive add secret request", zap.String("type", string(object.Type)), zap.String("comment", object.Comment))
 
+	if err := s.validateSecret(object); err != nil {
+		return fmt.Errorf("secret is not valid: %w", err)
+	}
+
 	userID, ok := ctx.Value("userID").(models.UserID)
 	if !ok {
 		return fmt.Errorf("encode secret: userID not found in context")
@@ -88,4 +94,36 @@ func (s secretsService) GetSecret(ctx context.Context, secretID int) (*models.Se
 	s.cfg.Logger().Info("Get secret", zap.Int("secretID", secretID))
 
 	return secret, nil
+}
+
+func (s secretsService) validateSecret(object *models.Secret) error {
+	switch object.Type {
+	case models.PASSWORD:
+		var passwordRequest models.PasswordRequestObject
+		if err := json.Unmarshal(object.Content, &passwordRequest); err != nil {
+			return err
+		}
+	case models.BINARY:
+		return nil
+
+	case models.TEXT:
+		if utf8.Valid(object.Content) {
+			return nil
+		}
+		return errors.New("text is not valid utf8")
+
+	case models.BANK_CARD:
+		var bankCard models.BankCard
+		if err := json.Unmarshal(object.Content, &bankCard); err != nil {
+			return err
+		}
+		if !bankCard.IsValid() {
+			return errors.New("bank card is not valid")
+		}
+		return nil
+
+	default:
+		return errors.New("secret type not supported")
+	}
+	return nil
 }

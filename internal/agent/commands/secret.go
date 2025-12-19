@@ -34,6 +34,7 @@ func addSecretCmd(deps agent.RootDeps) *cobra.Command {
 		Use:   "add",
 		Long:  "Add secret command for adding secrets",
 		Short: "Secrets add command",
+		Args:  cobra.OnlyValidArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			iAgent := deps.NewAgent()
 
@@ -57,23 +58,25 @@ func addSecretCmd(deps agent.RootDeps) *cobra.Command {
 				body = []byte(input)
 			}
 
-			deps.Logger.Info("Adding secret to app", zap.String("secret-type", secretType), zap.String("comment", comment))
+			deps.Logger.Info("Adding secret to app", zap.String("secret-type", secretType), zap.String("comment", comment), zap.String("body", string(body)))
 
 			connParams := &agent.ConnParams{Address: address, Key: key, Token: token}
 
 			secret := &requests.SecretRequest{Body: body, SecretType: models.SecretType(secretType), Comment: comment}
 			if err := iAgent.AddSecret(secret, connParams); err != nil {
 				deps.Logger.Error(err.Error())
-				return fmt.Errorf("authentication failed: %w", err)
+				return fmt.Errorf("adding secret failed: %w", err)
 			}
 
 			return nil
 		},
 	}
-	cmd.Flags().StringP("secret-type", "s", "", "secret type to add")
+
+	var secretType models.SecretType
 	cmd.Flags().StringP("input", "i", "", "secret input string")
 	cmd.Flags().StringP("file", "f", "", "file path to read secret from")
 	cmd.Flags().StringP("comment", "c", "", "optional comment for secret; max length 200")
+	cmd.Flags().VarP(&models.SecretTypeValue{Value: &secretType}, "secret-type", "s", "secret type to add; (password|text|bank_card|binary)")
 
 	_ = viper.BindPFlag("secret-type", cmd.Flags().Lookup("secret-type"))
 	_ = viper.BindPFlag("input", cmd.Flags().Lookup("input"))
@@ -147,24 +150,28 @@ func getSecretCmd(deps agent.RootDeps) *cobra.Command {
 				return fmt.Errorf("error getting secret: %w", err)
 			}
 
+			fmt.Printf("ID: %d\n", secret.ID)
+			fmt.Printf("Created at: %s\n", secret.CreatedAt)
+			fmt.Printf("Secret type: %s\n", secret.Type)
+			fmt.Printf("Comment: %s\n", secret.Comment)
+
 			if output == "" {
-				fmt.Printf("ID: %d\n", secret.ID)
-				fmt.Printf("Created at: %s\n", secret.CreatedAt)
-				fmt.Printf("Secret type: %s\n", secret.Type)
 				fmt.Printf("Content: %s\n", string(secret.Content))
-				fmt.Printf("Comment: %s\n", secret.Comment)
 				return nil
 			}
 
 			if err := iAgent.WriteSecretToFile(secret.Content, output); err != nil {
 				return fmt.Errorf("error writing secret to file: %w", err)
 			}
+			fmt.Printf("Content was written to file: %s\n", output)
 
 			return nil
 		},
 	}
-	cmd.Flags().IntP("id", "d", -1, "secret id")
+	cmd.Flags().IntP("id", "d", 0, "secret id")
 	cmd.Flags().StringP("output", "o", "", "file to write secret to; default to stdout")
+
+	cmd.MarkFlagRequired("id")
 
 	_ = viper.BindPFlag("id", cmd.Flags().Lookup("id"))
 	_ = viper.BindPFlag("output", cmd.Flags().Lookup("output"))

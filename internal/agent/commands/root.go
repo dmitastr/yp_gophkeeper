@@ -28,11 +28,16 @@ func NewCmd(deps agent.RootDeps) *cobra.Command {
 	_ = viper.BindPFlag("address", cmd.PersistentFlags().Lookup("address"))
 	_ = viper.BindPFlag("key", cmd.PersistentFlags().Lookup("key"))
 
-	viper.SetConfigFile("agent_config.json")
-	err := viper.ReadInConfig()
+	viper.SetConfigName("agent_config")
+	viper.SetConfigType("json")
+	viper.AddConfigPath(".")
 
-	if err != nil && !errors.Is(err, viper.ConfigFileNotFoundError{}) {
-		panic(err)
+	err := viper.ReadInConfig()
+	if err != nil {
+		var notFound viper.ConfigFileNotFoundError
+		if !errors.As(err, &notFound) {
+			panic(err)
+		}
 	}
 
 	var cfg config.Config

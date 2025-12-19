@@ -22,7 +22,7 @@ func NewLoginCmd(deps agent.RootDeps) *cobra.Command {
 		Long:  "Login existing user",
 		Short: "login user",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			username := viper.GetString("username")
+			username := viper.GetString("login.username")
 			address := viper.GetString("address")
 			key := viper.GetString("key")
 
@@ -44,7 +44,7 @@ func NewLoginCmd(deps agent.RootDeps) *cobra.Command {
 	}
 	cmd.Flags().StringP("username", "u", "", "username for auth call")
 
-	_ = viper.BindPFlag("username", cmd.Flags().Lookup("username"))
+	_ = viper.BindPFlag("login.username", cmd.Flags().Lookup("username"))
 
 	viper.SetEnvPrefix("GOPHKEEPER")
 	_ = viper.BindEnv("username")
