@@ -9,10 +9,10 @@ import (
 	"go.uber.org/zap"
 	"gophkeep/internal/agent/client"
 	"gophkeep/internal/agent/config"
-	"gophkeep/internal/agent/cryptomanager"
 	"gophkeep/internal/agent/filereader"
 	"gophkeep/internal/core/models"
 	"gophkeep/internal/core/requests"
+	"gophkeep/internal/core/validation"
 	"gophkeep/internal/logger"
 )
 
@@ -25,27 +25,26 @@ type ConnParams struct {
 type IAgent interface {
 	Authenticate(username, password string, isNewUser bool, params *ConnParams) error
 	Ping(params *ConnParams) error
-	AddPassword(login, password string, params *ConnParams) error
 	AddSecret(secret *requests.SecretRequest, params *ConnParams) error
 	GetAllSecrets(params *ConnParams) ([]models.SecretInfo, error)
 	GetSecret(secretID int, params *ConnParams) (*models.Secret, error)
-	ReadSecretFromFile(file string) ([]byte, error)
+	ReadSecretFromFile(file string) (*requests.SecretRequest, error)
 	WriteSecretToFile(content []byte, file string) error
 }
 
 type Agent struct {
-	connClient    client.IClient
-	cryptoManager cryptomanager.CryptoManager
-	fileReader    filereader.FileInputReader
+	connClient client.IClient
+	fileReader filereader.FileInputReader
 	logger.ILogger
+	secretValidator validation.IValidator
 }
 
 func NewAgent(log logger.ILogger) IAgent {
 	a := &Agent{
-		cryptoManager: cryptomanager.NewCryptoManager(),
-		connClient:    client.NewClient(),
-		fileReader:    filereader.NewFileInputReader(),
-		ILogger:       log,
+		connClient:      client.NewClient(),
+		fileReader:      filereader.NewFileInputReader(),
+		ILogger:         log,
+		secretValidator: validation.NewValidator(),
 	}
 	return a
 }
@@ -91,27 +90,14 @@ func (a *Agent) Ping(params *ConnParams) error {
 
 }
 
-func (a *Agent) AddPassword(login, password string, params *ConnParams) error {
-	err := a.connClient.AddPassword(params.Token, params.Address, login, password)
+func (a *Agent) AddSecret(secretRequest *requests.SecretRequest, params *ConnParams) error {
+	_, err := a.secretValidator.Validate(secretRequest)
 	if err != nil {
-		return fmt.Errorf("error pinging agent: %s", err)
-	}
-	return nil
-
-}
-
-func (a *Agent) AddSecret(secret *requests.SecretRequest, params *ConnParams) error {
-	switch secret.SecretType {
-	case models.PASSWORD:
-		var passw models.PasswordRequestObject
-		if err := json.Unmarshal(secret.Body, &passw); err != nil {
-			return fmt.Errorf("error unmarshalling secret: %s", err)
-		}
+		return fmt.Errorf("error validating secret request: %w", err)
 	}
 
-	err := a.connClient.AddSecret(params.Token, params.Address, secret)
-	if err != nil {
-		return fmt.Errorf("error adding secret: %s", err)
+	if err := a.connClient.AddSecret(params.Token, params.Address, secretRequest); err != nil {
+		return fmt.Errorf("error adding secretRequest: %s", err)
 	}
 	return nil
 
@@ -136,8 +122,16 @@ func (a *Agent) GetSecret(secretID int, params *ConnParams) (*models.Secret, err
 	return secret, nil
 }
 
-func (a *Agent) ReadSecretFromFile(file string) ([]byte, error) {
-	return a.fileReader.FileRead(file)
+func (a *Agent) ReadSecretFromFile(file string) (*requests.SecretRequest, error) {
+	fileContent, err := a.fileReader.FileRead(file)
+	if err != nil {
+		return nil, fmt.Errorf("error reading file: %w", err)
+	}
+	var r requests.SecretRequest
+	if err := json.Unmarshal(fileContent, &r); err != nil {
+		return nil, fmt.Errorf("error unmarshalling json: %w", err)
+	}
+	return &r, nil
 }
 
 func (a *Agent) WriteSecretToFile(content []byte, file string) error {

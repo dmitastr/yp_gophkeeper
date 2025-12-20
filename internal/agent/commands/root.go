@@ -50,7 +50,6 @@ func NewCmd(deps agent.RootDeps) *cobra.Command {
 		NewPingCmd(deps),
 		NewLoginCmd(deps),
 		NewAuthCmd(deps),
-		NewPasswordsCmd(deps),
 		NewSecretsCmd(deps),
 	)
 

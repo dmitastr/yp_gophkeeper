@@ -31,10 +31,52 @@ func NewSecretsCmd(deps agent.RootDeps) *cobra.Command {
 
 func addSecretCmd(deps agent.RootDeps) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "add",
-		Long:  "Add secret command for adding secrets",
+		Use: "add",
+		Long: `Add a secret by providing a JSON file or from command line argument
+
+Available secret types:
+gophkeep secrets add --file path/to/password.json
+
+// password.json
+{
+  "body": {
+    "login": "my_login",
+    "password": "567890"
+  },
+  "secret_type": "password",
+  "comment": "this is comment"
+}
+-------
+gophkeep secrets add --file path/to/bank_card.json 
+
+// bank_card.json
+{
+  "body": {
+    "number": 5120350100064537,
+    "expiry_data": "01/30",
+    "cardholder_name": "John Smith",
+    "cvc": "000"
+  },
+  "secret_type": "bank_card",
+  "comment": "this is comment for bank card"
+}
+-------
+Accept any text or binary files
+
+gophkeep secrets add --file path/to/file`,
+
 		Short: "Secrets add command",
-		Args:  cobra.OnlyValidArgs,
+		Example: `
+  # Add a password 
+  gophkeep secrets add --file examples/password.json
+
+  # Add a bank card 
+  gophkeep secrets add --file examples/bank_card.json 
+
+  # Read from command line
+  gophkeep secrets add --input "text to add" --secret-type text
+`,
+		Args: cobra.OnlyValidArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			iAgent := deps.NewAgent()
 
@@ -47,23 +89,26 @@ func addSecretCmd(deps agent.RootDeps) *cobra.Command {
 			token := viper.GetString("token")
 			comment := viper.GetString("comment")
 
-			var body []byte
+			var secretRequest *requests.SecretRequest
 			if file != "" {
 				var err error
-				body, err = iAgent.ReadSecretFromFile(file)
+				secretRequest, err = iAgent.ReadSecretFromFile(file)
 				if err != nil {
 					return fmt.Errorf("error reading secret from file: %s", err)
 				}
 			} else {
-				body = []byte(input)
+				secretRequest = &requests.SecretRequest{Body: []byte(input), SecretType: models.SecretType(secretType), Comment: comment}
 			}
 
-			deps.Logger.Info("Adding secret to app", zap.String("secret-type", secretType), zap.String("comment", comment), zap.String("body", string(body)))
+			deps.Logger.Info("Adding secret to app",
+				zap.String("secret-type", string(secretRequest.SecretType)),
+				zap.String("comment", secretRequest.Comment),
+				zap.Int("body size", len(secretRequest.Body)),
+			)
 
 			connParams := &agent.ConnParams{Address: address, Key: key, Token: token}
 
-			secret := &requests.SecretRequest{Body: body, SecretType: models.SecretType(secretType), Comment: comment}
-			if err := iAgent.AddSecret(secret, connParams); err != nil {
+			if err := iAgent.AddSecret(secretRequest, connParams); err != nil {
 				deps.Logger.Error(err.Error())
 				return fmt.Errorf("adding secret failed: %w", err)
 			}
@@ -77,6 +122,9 @@ func addSecretCmd(deps agent.RootDeps) *cobra.Command {
 	cmd.Flags().StringP("file", "f", "", "file path to read secret from")
 	cmd.Flags().StringP("comment", "c", "", "optional comment for secret; max length 200")
 	cmd.Flags().VarP(&models.SecretTypeValue{Value: &secretType}, "secret-type", "s", "secret type to add; (password|text|bank_card|binary)")
+
+	cmd.MarkFlagsMutuallyExclusive("file", "input")
+	cmd.MarkFlagsOneRequired("file", "input")
 
 	_ = viper.BindPFlag("secret-type", cmd.Flags().Lookup("secret-type"))
 	_ = viper.BindPFlag("input", cmd.Flags().Lookup("input"))
