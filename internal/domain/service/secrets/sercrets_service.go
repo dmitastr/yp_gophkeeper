@@ -11,6 +11,7 @@ import (
 	"gophkeep/internal/config"
 	"gophkeep/internal/core/models"
 	"gophkeep/internal/datasources"
+	"gophkeep/internal/domain/cryptomanager"
 )
 
 type SecretsService interface {
@@ -21,12 +22,23 @@ type SecretsService interface {
 }
 
 type secretsService struct {
-	db  datasources.Datasource
-	cfg config.ConfigProvider
+	db        datasources.Datasource
+	cfg       config.ConfigProvider
+	encryptor cryptomanager.CryptoManager
 }
 
 func NewSecretsService(cfg config.ConfigProvider, db datasources.Datasource) SecretsService {
-	return &secretsService{cfg: cfg, db: db}
+	s := &secretsService{cfg: cfg, db: db}
+
+	if key := cfg.GetConfig().Key; key != "" {
+		encryptor, err := cryptomanager.NewCryptoManager([]byte(key))
+		if err != nil {
+			panic(err)
+		}
+		s.encryptor = encryptor
+	}
+
+	return s
 }
 
 func (s secretsService) AddPassword(ctx context.Context, object *models.PasswordRequestObject) error {
@@ -66,6 +78,12 @@ func (s secretsService) AddSecret(ctx context.Context, object *models.Secret) er
 		return fmt.Errorf("encode secret: userID not found in context")
 	}
 
+	secretEncrypted, err := s.encryptor.Encrypt(object.Content)
+	if err != nil {
+		return fmt.Errorf("encrypt secret error: %w", err)
+	}
+	object.Content = secretEncrypted
+
 	if err := s.db.AddSecret(ctx, userID, object.Type, object.Content, object.Comment); err != nil {
 		return fmt.Errorf("add secret: %w", err)
 	}
@@ -79,6 +97,7 @@ func (s secretsService) GetAllSecrets(ctx context.Context) ([]models.SecretInfo,
 	if err != nil {
 		return nil, fmt.Errorf("get secrets: %w", err)
 	}
+
 	return secrets, nil
 }
 
@@ -90,6 +109,12 @@ func (s secretsService) GetSecret(ctx context.Context, secretID int) (*models.Se
 	if err != nil {
 		return nil, fmt.Errorf("get secret: %w", err)
 	}
+
+	secretDecrypted, err := s.decrypt(secret.Content)
+	if err != nil {
+		return nil, fmt.Errorf("decrypt secret: %w", err)
+	}
+	secret.Content = secretDecrypted
 
 	s.cfg.Logger().Info("Get secret", zap.Int("secretID", secretID))
 
@@ -126,4 +151,52 @@ func (s secretsService) validateSecret(object *models.Secret) error {
 		return errors.New("secret type not supported")
 	}
 	return nil
+}
+
+func (s secretsService) encryptWithNewKey(secret []byte) (secretEncrypted []byte, encryptionKey []byte, err error) {
+	encryptionKey, err = s.encryptor.GenerateKey(32)
+	if err != nil {
+		return nil, nil, fmt.Errorf("generate encryption key error: %w", err)
+	}
+	encryptor, err := cryptomanager.NewCryptoManager(encryptionKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("creating encryptor manager error: %w", err)
+	}
+	secretEncrypted, err = encryptor.Encrypt(secret)
+	if err != nil {
+		return nil, nil, fmt.Errorf("encrypt secret error: %w", err)
+	}
+
+	encryptionKey, err = s.encryptor.Encrypt(encryptionKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("encrypting encryption key error: %w", err)
+	}
+
+	return secretEncrypted, encryptionKey, nil
+}
+
+func (s secretsService) encrypt(secret []byte) (secretEncrypted []byte, err error) {
+	if s.encryptor == nil {
+		return secret, nil
+	}
+
+	secretEncrypted, err = s.encryptor.Encrypt(secret)
+	if err != nil {
+		return nil, fmt.Errorf("encrypt secret error: %w", err)
+	}
+
+	return secretEncrypted, nil
+}
+
+func (s secretsService) decrypt(secret []byte) (secretDecrypted []byte, err error) {
+	if s.encryptor == nil {
+		return secret, nil
+	}
+
+	secretDecrypted, err = s.encryptor.Decrypt(secret)
+	if err != nil {
+		return nil, fmt.Errorf("decrypting secret error: %w", err)
+	}
+
+	return secretDecrypted, nil
 }

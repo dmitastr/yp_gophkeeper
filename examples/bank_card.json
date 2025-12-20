@@ -1,0 +1,10 @@
+{
+  "body": {
+    "number": 5120350100064537,
+    "expiry_data": "01/30",
+    "cardholder_name": "John Smith",
+    "cvc": "000"
+  },
+  "secret_type": "bank_card",
+  "comment": "this is comment for bank card"
+}
