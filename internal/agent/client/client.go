@@ -1,89 +1,17 @@
 package client
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
-	"gophkeep/internal/agent/compression"
 	"gophkeep/internal/core/models"
 	"gophkeep/internal/core/requests"
 	"gophkeep/internal/core/responses"
 )
-
-type RequestBuilder struct {
-	req        *retryablehttp.Request
-	compressor compression.ICompressor
-}
-
-func NewRequestBuilder(method, baseURL, suffix string) (*RequestBuilder, error) {
-	path, err := url.JoinPath(baseURL, suffix)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := retryablehttp.NewRequest(method, path, nil)
-	if err != nil {
-		return nil, err
-	}
-	return &RequestBuilder{req: req, compressor: compression.NewCompressor()}, nil
-}
-
-func (r *RequestBuilder) WithBody(body interface{}) *RequestBuilder {
-	data, err := json.Marshal(body)
-	if err != nil {
-		panic(err)
-	}
-
-	if r.compressor != nil {
-		data, err = r.compressor.Compress(data)
-		if err != nil {
-			panic(err)
-		}
-		r.req.Header.Set("Content-Encoding", "gzip")
-	}
-
-	r.req.Body = io.NopCloser(bytes.NewReader(data))
-	r.req.ContentLength = int64(len(data))
-	r.req.Header.Set("Content-Type", "application/json")
-
-	r.req.SetBody(data)
-
-	return r
-}
-
-func (r *RequestBuilder) WithRawBody(data []byte) *RequestBuilder {
-	if r.compressor != nil {
-		var err error
-		data, err = r.compressor.Compress(data)
-		if err != nil {
-			panic(err)
-		}
-		r.req.Header.Set("Content-Encoding", "gzip")
-	}
-
-	r.req.Body = io.NopCloser(bytes.NewReader(data))
-	r.req.ContentLength = int64(len(data))
-	r.req.Header.Set("Content-Type", "application/json")
-
-	r.req.SetBody(data)
-
-	return r
-}
-
-func (r *RequestBuilder) WithBearer(token string) *RequestBuilder {
-	r.req.Header.Add("Authorization", "Bearer "+token)
-	return r
-}
-
-func (r *RequestBuilder) Build() *retryablehttp.Request {
-	return r.req
-}
 
 type IClient interface {
 	Authenticate(body *requests.AuthRequest, address string) (*string, error)
@@ -92,6 +20,8 @@ type IClient interface {
 	AddSecret(bearerToken, address string, body *requests.SecretRequest) error
 	GetSecret(bearerToken, address string, secretID int) (*models.Secret, error)
 	GetAllSecrets(bearerToken, address string) ([]models.SecretInfo, error)
+	UpdateSecret(bearerToken, address string, body *requests.SecretRequest) error
+	DeleteSecret(bearerToken, address string, secretID int) error
 }
 
 type Client struct {
@@ -185,10 +115,20 @@ func (c *Client) AddSecret(bearerToken, address string, body *requests.SecretReq
 		return fmt.Errorf("error creating request: %w", err)
 	}
 
-	req := reqBuilder.WithBearer(bearerToken).WithBody(body).Build()
+	reqBuilder = reqBuilder.WithBearer(bearerToken).WithBody(body)
+
+	// switch body.SecretType {
+	// case models.PASSWORD, models.BANK_CARD:
+	// 	reqBuilder = reqBuilder.WithBody(body)
+	// default:
+	// 	reqBuilder = reqBuilder.WithRawBody(body.Body)
+	// }
+
+	req := reqBuilder.Build()
+
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("error adding password: %w", err)
+		return fmt.Errorf("error adding secret: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -243,4 +183,51 @@ func (c *Client) GetSecret(bearerToken, address string, secretID int) (*models.S
 	}
 
 	return secret.Secret, nil
+}
+
+func (c *Client) UpdateSecret(bearerToken, address string, body *requests.SecretRequest) error {
+	reqBuilder, err := NewRequestBuilder(http.MethodPut, address, fmt.Sprintf("/api/secrets/%d", body.ID))
+	if err != nil {
+		return fmt.Errorf("error creating request: %w", err)
+	}
+
+	reqBuilder = reqBuilder.WithBearer(bearerToken)
+
+	switch body.SecretType {
+	case models.PASSWORD, models.BANK_CARD:
+		reqBuilder = reqBuilder.WithBody(body)
+	default:
+		reqBuilder = reqBuilder.WithRawBody(body.Body)
+	}
+
+	req := reqBuilder.Build()
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("error updating secret: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad status: %s", resp.Status)
+	}
+
+	return nil
+}
+
+func (c *Client) DeleteSecret(bearerToken, address string, secretID int) error {
+	reqBuilder, err := NewRequestBuilder(http.MethodDelete, address, fmt.Sprintf("/api/secrets/%d", secretID))
+	if err != nil {
+		return fmt.Errorf("error creating request: %w", err)
+	}
+
+	req := reqBuilder.WithBearer(bearerToken).Build()
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("error deleting secret: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad status: %s", resp.Status)
+	}
+
+	return nil
 }

@@ -26,10 +26,13 @@ type IAgent interface {
 	Authenticate(username, password string, isNewUser bool, params *ConnParams) error
 	Ping(params *ConnParams) error
 	AddSecret(secret *requests.SecretRequest, params *ConnParams) error
+	UpdateSecret(secretRequest *requests.SecretRequest, params *ConnParams) error
+	DeleteSecret(secretID int, params *ConnParams) error
 	GetAllSecrets(params *ConnParams) ([]models.SecretInfo, error)
 	GetSecret(secretID int, params *ConnParams) (*models.Secret, error)
 	ReadSecretFromFile(file string) (*requests.SecretRequest, error)
 	WriteSecretToFile(content []byte, file string) error
+	ParseInput(input, fileName, comment string, secretType models.SecretType) (*requests.SecretRequest, error)
 }
 
 type Agent struct {
@@ -44,7 +47,7 @@ func NewAgent(log logger.ILogger) IAgent {
 		connClient:      client.NewClient(),
 		fileReader:      filereader.NewFileInputReader(),
 		ILogger:         log,
-		secretValidator: validation.NewValidator(),
+		secretValidator: validation.NewValidator(nil),
 	}
 	return a
 }
@@ -91,16 +94,10 @@ func (a *Agent) Ping(params *ConnParams) error {
 }
 
 func (a *Agent) AddSecret(secretRequest *requests.SecretRequest, params *ConnParams) error {
-	_, err := a.secretValidator.Validate(secretRequest)
-	if err != nil {
-		return fmt.Errorf("error validating secret request: %w", err)
-	}
-
 	if err := a.connClient.AddSecret(params.Token, params.Address, secretRequest); err != nil {
 		return fmt.Errorf("error adding secretRequest: %s", err)
 	}
 	return nil
-
 }
 
 func (a *Agent) GetAllSecrets(params *ConnParams) ([]models.SecretInfo, error) {
@@ -122,6 +119,21 @@ func (a *Agent) GetSecret(secretID int, params *ConnParams) (*models.Secret, err
 	return secret, nil
 }
 
+func (a *Agent) UpdateSecret(secretRequest *requests.SecretRequest, params *ConnParams) error {
+	if err := a.connClient.UpdateSecret(params.Token, params.Address, secretRequest); err != nil {
+		return fmt.Errorf("error adding secret: %s", err)
+	}
+	return nil
+}
+
+func (a *Agent) DeleteSecret(secretID int, params *ConnParams) error {
+
+	if err := a.connClient.DeleteSecret(params.Token, params.Address, secretID); err != nil {
+		return fmt.Errorf("error deleting secret: %s", err)
+	}
+	return nil
+}
+
 func (a *Agent) ReadSecretFromFile(file string) (*requests.SecretRequest, error) {
 	fileContent, err := a.fileReader.FileRead(file)
 	if err != nil {
@@ -135,5 +147,9 @@ func (a *Agent) ReadSecretFromFile(file string) (*requests.SecretRequest, error)
 }
 
 func (a *Agent) WriteSecretToFile(content []byte, file string) error {
-	return a.WriteSecretToFile(content, file)
+	return a.fileReader.FileWrite(content, file)
+}
+
+func (a *Agent) ParseInput(input, fileName, comment string, secretType models.SecretType) (*requests.SecretRequest, error) {
+	return a.fileReader.ParseInput(input, fileName, comment, secretType)
 }
