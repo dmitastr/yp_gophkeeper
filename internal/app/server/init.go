@@ -70,7 +70,6 @@ func (app *App) Stop(ctx context.Context) error {
 func (app *App) registerHandlers(router *gin.Engine, h handlers.HandlersProvider, m middleware.MiddlewareProvider) error {
 	router.Use(gzip.Gzip(gzip.DefaultCompression, gzip.WithDecompressFn(gzip.DefaultDecompressHandle)))
 	apiPath := router.Group("/api")
-	// apiPath.Use(gzip.Gzip(gzip.DefaultCompression))
 
 	apiPath.POST(`/login`, h.LoginUser)
 	apiPath.POST(`/auth`, h.RegisterUser)
@@ -81,7 +80,8 @@ func (app *App) registerHandlers(router *gin.Engine, h handlers.HandlersProvider
 	secretsPath.POST(`/`, h.AddSecret)
 	secretsPath.GET(`/`, h.GetAllSecrets)
 	secretsPath.GET(`/:secretID`, h.GetSecret)
-	secretsPath.POST(`/passwords`, h.AddPassword)
+	secretsPath.PUT(`/:secretID`, h.UpdateSecret)
+	secretsPath.DELETE(`/:secretID`, h.DeleteSecret)
 
 	return nil
 }

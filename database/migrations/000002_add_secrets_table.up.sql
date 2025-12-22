@@ -1,11 +1,14 @@
 DROP TABLE IF EXISTS secrets;
 
+CREATE TYPE secret_type AS ENUM ('password', 'bank_card', 'text', 'binary');
+
 CREATE TABLE IF NOT EXISTS secrets (
     id serial primary key,
     user_id INTEGER,
-    secret_type varchar(10) not null ,
+    secret_type secret_type ,
     secret BYTEA,
     created_at TIMESTAMP,
+    updated_at TIMESTAMP,
     comment varchar(200)
 );
 

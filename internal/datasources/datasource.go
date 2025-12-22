@@ -15,11 +15,23 @@ type Datasource interface {
 	GetPassword(ctx context.Context, login string, passwordID int) (*models.Password, error)
 	AddSecret(ctx context.Context, userID models.UserID, secretType models.SecretType, secret []byte, comment string) error
 	GetSecret(ctx context.Context, secretID int, userID models.UserID) (*models.Secret, error)
+	UpdateSecret(ctx context.Context, secret *models.Secret, userID models.UserID) error
+	DeleteSecret(ctx context.Context, secretID int, userID models.UserID) error
 	GetAllSecrets(ctx context.Context, userID models.UserID) ([]models.SecretInfo, error)
 }
 
 type dummyDS struct {
 	cfg config.ConfigProvider
+}
+
+func (d dummyDS) UpdateSecret(ctx context.Context, secret *models.Secret, userID models.UserID) error {
+	// TODO implement me
+	panic("implement me")
+}
+
+func (d dummyDS) DeleteSecret(ctx context.Context, secretID int, userID models.UserID) error {
+	// TODO implement me
+	panic("implement me")
 }
 
 func NewDummyDS(cfg config.ConfigProvider) Datasource {

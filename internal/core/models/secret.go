@@ -40,11 +40,12 @@ func (st *SecretTypeValue) Type() string {
 }
 
 type Secret struct {
-	Type      SecretType `json:"type" db:"secret_type"`
-	ID        int        `json:"id" db:"secret_id"`
-	CreatedAt time.Time  `json:"created_at" db:"created_at"`
-	Content   []byte     `json:"content,omitempty" db:"secret"`
-	Comment   string     `json:"comment,omitempty" db:"comment"`
+	Type          SecretType `json:"type" db:"secret_type"`
+	ID            int        `json:"id" db:"secret_id"`
+	CreatedAt     time.Time  `json:"created_at" db:"created_at"`
+	Content       []byte     `json:"content,omitempty" db:"secret"`
+	ContentString string     `json:"content_string,omitempty" db:"secret"`
+	Comment       string     `json:"comment,omitempty" db:"comment"`
 }
 
 type SecretInfo struct {

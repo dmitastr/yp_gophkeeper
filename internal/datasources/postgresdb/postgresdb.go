@@ -114,15 +114,23 @@ func (p *PostgresStorage) GetPassword(ctx context.Context, login string, passwor
 
 func (p *PostgresStorage) AddSecret(ctx context.Context, userID models.UserID, secretType models.SecretType, secret []byte, comment string) error {
 	p.cfg.Logger().Info("AddSecret called", zap.String("secretType", string(secretType)), zap.Int("userID", int(userID)))
-	query := `INSERT INTO secrets (user_id, secret_type, secret, created_at, comment) VALUES ($1, $2, $3, $4, $5)`
+	query := `INSERT INTO secrets (user_id, secret_type, secret, created_at, updated_at, comment) 
+				VALUES (@user_id, @secret_type, @secret, @created_at, @updated_at, @comment)`
 
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("could not start transaction: %w", err)
 	}
 
-	now := time.Now()
-	if _, err := tx.Exec(ctx, query, userID, secretType, secret, now, comment); err != nil {
+	args := pgx.NamedArgs{
+		"secret":      secret,
+		"secret_type": secretType,
+		"comment":     comment,
+		"user_id":     userID,
+		"updated_at":  time.Now(),
+		"created_at":  time.Now(),
+	}
+	if _, err := tx.Exec(ctx, query, args); err != nil {
 		tx.Rollback(ctx)
 		return fmt.Errorf("could not add secret: %w", err)
 	}
@@ -178,4 +186,62 @@ func (p *PostgresStorage) GetAllSecrets(ctx context.Context, userID models.UserI
 	tx.Commit(ctx)
 
 	return pgx.CollectRows(rows, pgx.RowToStructByName[models.SecretInfo])
+}
+
+func (p *PostgresStorage) UpdateSecret(ctx context.Context, secret *models.Secret, userID models.UserID) error {
+	p.cfg.Logger().Info("UpdateSecret called", zap.Int("secretID", secret.ID), zap.Int("userID", int(userID)))
+	query := `UPDATE secrets SET secret = @secret, comment = @comment, updated_at = @updated_at
+               WHERE user_id = @user_id AND id = @secret_id`
+
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("could not start transaction: %w", err)
+	}
+
+	now := time.Now()
+
+	args := pgx.NamedArgs{
+		"secret":     secret.Content,
+		"comment":    secret.Comment,
+		"user_id":    userID,
+		"secret_id":  secret.ID,
+		"updated_at": now,
+	}
+	if _, err := tx.Exec(ctx, query, args); err != nil {
+		tx.Rollback(ctx)
+		return fmt.Errorf("could not update secret: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		tx.Rollback(ctx)
+		return fmt.Errorf("could not commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+func (p *PostgresStorage) DeleteSecret(ctx context.Context, secretID int, userID models.UserID) error {
+	p.cfg.Logger().Info("DeleteSecret called", zap.Int("secretID", secretID), zap.Int("userID", int(userID)))
+	query := `DELETE FROM secrets WHERE user_id = @user_id AND id = @secret_id`
+
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("could not start transaction: %w", err)
+	}
+
+	args := pgx.NamedArgs{
+		"user_id":   userID,
+		"secret_id": secretID,
+	}
+	if _, err := tx.Exec(ctx, query, args); err != nil {
+		tx.Rollback(ctx)
+		return fmt.Errorf("could not delete secret: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		tx.Rollback(ctx)
+		return fmt.Errorf("could not commit transaction: %w", err)
+	}
+
+	return nil
 }
