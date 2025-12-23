@@ -2,7 +2,6 @@ package authservice
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"gophkeep/internal/config"
@@ -14,9 +13,9 @@ import (
 )
 
 type AuthService interface {
-	LoginUser(object params.AuthRequestObject) (string, error)
+	LoginUser(ctx context.Context, object params.AuthRequestObject) (string, error)
 	VerifyJWT(string) (*jwtmanager.Claims, error)
-	RegisterUser(object params.AuthRequestObject) (string, error)
+	RegisterUser(ctx context.Context, object params.AuthRequestObject) (string, error)
 }
 
 type AuthServiceImpl struct {
@@ -30,21 +29,21 @@ func NewAuthService(cfg config.ConfigProvider, db datasources.Datasource) AuthSe
 	return &AuthServiceImpl{manager: manager, db: db, hash: hashvalidator.NewHashValidator()}
 }
 
-func (a *AuthServiceImpl) LoginUser(object params.AuthRequestObject) (string, error) {
+func (a *AuthServiceImpl) LoginUser(ctx context.Context, object params.AuthRequestObject) (string, error) {
 	if object.Password == "" || object.Username == "" {
-		return "", errors.New("invalid object")
+		return "", models.ErrorEmptyAuthData
 	}
 
-	userExisted, err := a.db.GetUser(context.TODO(), object.Username)
+	userExisted, err := a.db.GetUser(ctx, object.Username)
 	if err != nil {
 		return "", err
 	}
 	if userExisted == nil {
-		return "", errors.New("user not found")
+		return "", models.ErrorUserNotFound
 	}
 
 	if ok := a.hash.Validate(object.Password, userExisted.Hash); !ok {
-		return "", errors.New("invalid password")
+		return "", models.ErrorInvalidPassword
 	}
 
 	token, err := a.manager.IssueJWT(userExisted)
@@ -54,9 +53,9 @@ func (a *AuthServiceImpl) LoginUser(object params.AuthRequestObject) (string, er
 	return token, nil
 }
 
-func (a *AuthServiceImpl) RegisterUser(object params.AuthRequestObject) (string, error) {
+func (a *AuthServiceImpl) RegisterUser(ctx context.Context, object params.AuthRequestObject) (string, error) {
 	user := &models.User{Username: object.Username, Hash: a.hash.CalculateHash(object.Password)}
-	userAdded, err := a.db.AddUser(context.TODO(), user)
+	userAdded, err := a.db.AddUser(ctx, user)
 	if err != nil {
 		return "", fmt.Errorf("add user error: %w", err)
 	}

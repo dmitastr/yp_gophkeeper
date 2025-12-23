@@ -16,10 +16,10 @@ import (
 
 type SecretsService interface {
 	AddPassword(ctx context.Context, object *requests.PasswordRequestObject) error
-	AddSecret(ctx context.Context, object *models.Secret) error
+	AddSecret(ctx context.Context, object *requests.SecretRequest) error
 	GetAllSecrets(ctx context.Context) ([]models.SecretInfo, error)
 	GetSecret(ctx context.Context, secretID int) (*models.Secret, error)
-	UpdateSecret(ctx context.Context, object *models.Secret) error
+	UpdateSecret(ctx context.Context, object *requests.SecretRequest) error
 	DeleteSecret(ctx context.Context, secretID int) error
 }
 
@@ -69,26 +69,31 @@ func (s secretsService) AddPassword(ctx context.Context, object *requests.Passwo
 	return nil
 }
 
-func (s secretsService) AddSecret(ctx context.Context, object *models.Secret) error {
-	s.cfg.Logger().Info("Receive add secret request", zap.String("type", string(object.Type)), zap.String("comment", object.Comment))
+func (s secretsService) AddSecret(ctx context.Context, object *requests.SecretRequest) error {
+	s.cfg.Logger().Info("Receive add secret request", zap.String("type", string(object.SecretType)), zap.String("comment", object.Comment))
 
-	content, err := s.secretValidator.Validate(object.ContentString, object.Type)
+	content, err := s.secretValidator.Validate(object.BodyString, object.SecretType, object.IsEncoded)
 	if err != nil {
 		return fmt.Errorf("secret is not valid: %w", err)
 	}
-	object.Content = content
+
+	secret := &models.Secret{
+		Type:    object.SecretType,
+		Comment: object.Comment,
+		Content: content,
+	}
 
 	userID, ok := ctx.Value("userID").(models.UserID)
 	if !ok {
 		return fmt.Errorf("encode secret: userID not found in context")
 	}
 
-	secretEncrypted, err := s.encryptor.Encrypt(object.Content)
+	secretEncrypted, err := s.encryptor.Encrypt(secret.Content)
 	if err != nil {
 		return fmt.Errorf("encrypt secret error: %w", err)
 	}
 
-	if err := s.db.AddSecret(ctx, userID, object.Type, secretEncrypted, object.Comment); err != nil {
+	if err := s.db.AddSecret(ctx, userID, secret.Type, secretEncrypted, secret.Comment); err != nil {
 		return fmt.Errorf("add secret: %w", err)
 	}
 
@@ -125,10 +130,10 @@ func (s secretsService) GetSecret(ctx context.Context, secretID int) (*models.Se
 	return secret, nil
 }
 
-func (s secretsService) UpdateSecret(ctx context.Context, object *models.Secret) error {
-	s.cfg.Logger().Info("Receive update secret request", zap.String("type", string(object.Type)), zap.String("comment", object.Comment))
+func (s secretsService) UpdateSecret(ctx context.Context, object *requests.SecretRequest) error {
+	s.cfg.Logger().Info("Receive update secret request", zap.String("type", string(object.SecretType)), zap.String("comment", object.Comment))
 
-	content, err := s.secretValidator.Validate(object.ContentString, object.Type)
+	content, err := s.secretValidator.Validate(object.BodyString, object.SecretType, object.IsEncoded)
 	if err != nil {
 		return fmt.Errorf("secret is not valid: %w", err)
 	}
@@ -142,9 +147,15 @@ func (s secretsService) UpdateSecret(ctx context.Context, object *models.Secret)
 	if err != nil {
 		return fmt.Errorf("encrypt object error: %w", err)
 	}
-	object.Content = secretEncrypted
 
-	if err := s.db.UpdateSecret(ctx, object, userID); err != nil {
+	secret := &models.Secret{
+		ID:      *object.ID,
+		Type:    object.SecretType,
+		Comment: object.Comment,
+		Content: secretEncrypted,
+	}
+
+	if err := s.db.UpdateSecret(ctx, secret, userID); err != nil {
 		return fmt.Errorf("update secret: %w", err)
 	}
 

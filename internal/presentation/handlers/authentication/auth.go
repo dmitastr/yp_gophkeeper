@@ -31,7 +31,7 @@ func (a *AuthHandlerImpl) RegisterUser(c *gin.Context) {
 		return
 	}
 
-	token, err := a.serviceProvider.RegisterUser(request)
+	token, err := a.serviceProvider.RegisterUser(c, request)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		a.cfg.Logger().Error("error while creating auth token", zap.Error(err))
@@ -47,7 +47,7 @@ func (a *AuthHandlerImpl) LoginUser(c *gin.Context) {
 		return
 	}
 
-	token, err := a.serviceProvider.LoginUser(request)
+	token, err := a.serviceProvider.LoginUser(c, request)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		a.cfg.Logger().Error("error while creating auth token", zap.Error(err))

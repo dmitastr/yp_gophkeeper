@@ -2,13 +2,12 @@ package commands
 
 import (
 	"fmt"
-	"os"
-	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"gophkeep/internal/agent/agent"
+	"gophkeep/internal/agent/formatter"
 	"gophkeep/internal/core/models"
 )
 
@@ -92,10 +91,11 @@ func addSecretCmd(deps agent.RootDeps) *cobra.Command {
 
 			connParams := &agent.ConnParams{Address: address, Key: key, Token: token}
 
-			if err := iAgent.AddSecret(secretRequest, connParams); err != nil {
+			if err := iAgent.AddSecret(cmd.Context(), secretRequest, connParams); err != nil {
 				deps.Logger.Error(err.Error())
 				return fmt.Errorf("adding secret failed: %w", err)
 			}
+			cmd.Println("Secret added successfully")
 
 			return nil
 		},
@@ -138,21 +138,16 @@ func getAllSecretsCmd(deps agent.RootDeps) *cobra.Command {
 
 			connParams := &agent.ConnParams{Address: address, Key: key, Token: token}
 
-			secrets, err := iAgent.GetAllSecrets(connParams)
+			secrets, err := iAgent.GetAllSecrets(cmd.Context(), connParams)
 			if err != nil {
 				return fmt.Errorf("error getting secrets: %w", err)
 			}
 
 			fmt.Printf("Fetched %d secrets\n", len(secrets))
 
-			w := tabwriter.NewWriter(os.Stdout, 10, 1, 2, ' ', 0)
-			fmt.Fprintln(w, "ID\tTYPE\tCREATED_AT\t")
-
-			for _, secret := range secrets {
-				fmt.Fprintf(w, "%d\t%s\t%s\t\n", secret.ID, secret.Type, secret.CreatedAt)
-			}
-
-			w.Flush()
+			out := cmd.OutOrStdout()
+			formatOutput := formatter.NewFormatter()
+			formatOutput.FormatOutput(out, secrets)
 
 			return nil
 		},
@@ -179,7 +174,7 @@ func getSecretCmd(deps agent.RootDeps) *cobra.Command {
 
 			connParams := &agent.ConnParams{Address: address, Key: key, Token: token}
 
-			secret, err := iAgent.GetSecret(secretID, connParams)
+			secret, err := iAgent.GetSecret(cmd.Context(), secretID, connParams)
 			if err != nil {
 				return fmt.Errorf("error getting secret: %w", err)
 			}
@@ -241,7 +236,7 @@ func updateSecretCmd(deps agent.RootDeps) *cobra.Command {
 				return fmt.Errorf("error parsing secret from command line arguments: %s", err)
 			}
 
-			secretRequest.ID = secretID
+			secretRequest.ID = &secretID
 
 			deps.Logger.Info("Update secret to app",
 				zap.Int("secretID", secretID),
@@ -252,7 +247,7 @@ func updateSecretCmd(deps agent.RootDeps) *cobra.Command {
 
 			connParams := &agent.ConnParams{Address: address, Key: key, Token: token}
 
-			if err := iAgent.UpdateSecret(secretRequest, connParams); err != nil {
+			if err := iAgent.UpdateSecret(cmd.Context(), secretRequest, connParams); err != nil {
 				deps.Logger.Error(err.Error())
 				return fmt.Errorf("updating secret failed: %w", err)
 			}
@@ -307,7 +302,7 @@ func deleteSecretCmd(deps agent.RootDeps) *cobra.Command {
 
 			connParams := &agent.ConnParams{Address: address, Key: key, Token: token}
 
-			if err := iAgent.DeleteSecret(secretID, connParams); err != nil {
+			if err := iAgent.DeleteSecret(cmd.Context(), secretID, connParams); err != nil {
 				deps.Logger.Error(err.Error())
 				return fmt.Errorf("updating secret failed: %w", err)
 			}

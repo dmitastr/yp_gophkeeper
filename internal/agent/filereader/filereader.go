@@ -3,7 +3,6 @@ package filereader
 import (
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 
@@ -62,7 +61,7 @@ func (fr *FileInputReaderImpl) ParseInput(input, fileName, comment string, secre
 
 func (fr *FileInputReaderImpl) parsePasswordJSON(_, fileName, comment string) (*requests.SecretRequest, error) {
 	if fileName == "" {
-		return nil, errors.New("no file name provided")
+		return nil, ErrorNoFileName
 	}
 
 	fileContent, err := fr.FileRead(fileName)
@@ -79,6 +78,7 @@ func (fr *FileInputReaderImpl) parsePasswordJSON(_, fileName, comment string) (*
 		BodyString: base64.StdEncoding.EncodeToString(fileContent),
 		SecretType: models.PASSWORD,
 		Comment:    comment,
+		IsEncoded:  true,
 	}
 
 	if s.Comment != "" {
@@ -90,7 +90,7 @@ func (fr *FileInputReaderImpl) parsePasswordJSON(_, fileName, comment string) (*
 
 func (fr *FileInputReaderImpl) parseBankCardJSON(_, fileName, comment string) (*requests.SecretRequest, error) {
 	if fileName == "" {
-		return nil, errors.New("no file name provided")
+		return nil, ErrorNoFileName
 	}
 
 	fileContent, err := fr.FileRead(fileName)
@@ -107,6 +107,7 @@ func (fr *FileInputReaderImpl) parseBankCardJSON(_, fileName, comment string) (*
 		BodyString: base64.StdEncoding.EncodeToString(fileContent),
 		SecretType: models.BANK_CARD,
 		Comment:    comment,
+		IsEncoded:  true,
 	}
 
 	if s.Comment != "" {
@@ -129,9 +130,15 @@ func (fr *FileInputReaderImpl) parseText(input, fileName, comment string) (secre
 		body = input
 
 	} else {
-		err = errors.New("file and input arguments are both empty")
+
+		err = ErrorEmptyInputParams
 	}
-	secretRequest = &requests.SecretRequest{BodyString: body, SecretType: models.TEXT, Comment: comment}
+	secretRequest = &requests.SecretRequest{
+		BodyString: body,
+		SecretType: models.TEXT,
+		Comment:    comment,
+		IsEncoded:  false,
+	}
 
 	return secretRequest, err
 }
@@ -145,13 +152,19 @@ func (fr *FileInputReaderImpl) parseBinary(input, fileName, comment string) (sec
 
 		encoded := base64.StdEncoding.EncodeToString(fileContent)
 
-		secretRequest = &requests.SecretRequest{BodyString: encoded, SecretType: models.BINARY, Comment: comment}
+		secretRequest = &requests.SecretRequest{
+			BodyString: encoded,
+			SecretType: models.BINARY,
+			Comment:    comment,
+			IsEncoded:  true,
+		}
 
 	} else if input != "" {
-		err = errors.New("binary input from argument is not supported")
+
+		err = ErrorWrongInputType
 
 	} else {
-		err = errors.New("file and input arguments are both empty")
+		err = ErrorEmptyInputParams
 	}
 
 	return secretRequest, err

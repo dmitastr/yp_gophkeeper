@@ -3,7 +3,6 @@ package validation
 import (
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"unicode/utf8"
 
@@ -12,10 +11,10 @@ import (
 	"gophkeep/internal/core/models"
 )
 
-type SecretHandler func(string) ([]byte, error)
+type SecretHandler func([]byte) ([]byte, error)
 
 type IValidator interface {
-	Validate(secretContent string, secretType models.SecretType) ([]byte, error)
+	Validate(secretContent string, secretType models.SecretType, isEncoded bool) ([]byte, error)
 }
 
 type Validator struct {
@@ -34,33 +33,14 @@ func NewValidator(cfg config.ConfigProvider) IValidator {
 	return v
 }
 
-func (v *Validator) Validate(secretContent string, secretType models.SecretType) ([]byte, error) {
-	handler, ok := v.secretRegistry[secretType]
-	if !ok {
-		return nil, errors.New("secretType not exist")
-	}
-	secret, err := handler(secretContent)
-	if err != nil {
-		return nil, err
-	}
-	return secret, nil
-}
-
-func (v *Validator) parseTextSecret(message string) ([]byte, error) {
-	content := []byte(message)
-
+func (v *Validator) parseTextSecret(content []byte) ([]byte, error) {
 	if utf8.Valid(content) {
 		return content, nil
 	}
-	return nil, errors.New("invalid message")
+	return nil, ErrorInvalidSecretContent
 }
 
-func (v *Validator) parsePasswordSecret(message string) ([]byte, error) {
-	content, err := base64.StdEncoding.DecodeString(message)
-	if err != nil {
-		return nil, fmt.Errorf("error base64 decoding message: %w", err)
-	}
-
+func (v *Validator) parsePasswordSecret(content []byte) ([]byte, error) {
 	var r models.Password
 	if err := json.Unmarshal(content, &r); err != nil {
 		return nil, fmt.Errorf("error unmarshalling password secret: %w", err)
@@ -68,12 +48,8 @@ func (v *Validator) parsePasswordSecret(message string) ([]byte, error) {
 	return content, r.Validate()
 }
 
-func (v *Validator) parseBankCardSecret(message string) ([]byte, error) {
-	v.cfg.Logger().Info("Validating bank card info", zap.String("message", message))
-	content, err := base64.StdEncoding.DecodeString(message)
-	if err != nil {
-		return nil, fmt.Errorf("error base64 decoding message: %w", err)
-	}
+func (v *Validator) parseBankCardSecret(content []byte) ([]byte, error) {
+	v.cfg.Logger().Info("Validating bank card info", zap.String("message", string(content)))
 	var r models.BankCard
 	if err := json.Unmarshal(content, &r); err != nil {
 		return nil, fmt.Errorf("error unmarshalling bank card secret: %w", err)
@@ -81,13 +57,42 @@ func (v *Validator) parseBankCardSecret(message string) ([]byte, error) {
 	return content, r.Validate()
 }
 
-func (v *Validator) parseBinarySecret(message string) ([]byte, error) {
+func (v *Validator) parseBinarySecret(content []byte) ([]byte, error) {
+	if len(content) == 0 || content == nil {
+		return nil, ErrorEmptySecretContent
+	}
+	return content, nil
+}
+
+func (v *Validator) decode(message string) ([]byte, error) {
 	content, err := base64.StdEncoding.DecodeString(message)
 	if err != nil {
 		return nil, fmt.Errorf("invalid binary secret")
 	}
-	if len(content) == 0 || content == nil {
-		return nil, errors.New("binary data is empty")
-	}
 	return content, nil
+}
+
+func (v *Validator) Validate(secretContent string, secretType models.SecretType, isEncoded bool) ([]byte, error) {
+	var content []byte
+	var err error
+
+	if isEncoded {
+		content, err = v.decode(secretContent)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		content = []byte(secretContent)
+	}
+
+	handler, ok := v.secretRegistry[secretType]
+	if !ok {
+
+		return nil, ErrorSecretTypeNotFound
+	}
+	secret, err := handler(content)
+	if err != nil {
+		return nil, err
+	}
+	return secret, nil
 }

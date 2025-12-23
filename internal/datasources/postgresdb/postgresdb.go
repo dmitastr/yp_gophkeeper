@@ -245,3 +245,8 @@ func (p *PostgresStorage) DeleteSecret(ctx context.Context, secretID int, userID
 
 	return nil
 }
+
+func (p *PostgresStorage) Close() error {
+	p.pool.Close()
+	return nil
+}

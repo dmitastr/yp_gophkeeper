@@ -1,8 +1,6 @@
 package models
 
 import (
-	"errors"
-
 	"github.com/theplant/luhn"
 )
 
@@ -21,7 +19,8 @@ func (b *BankCard) IsValid() bool {
 
 func (b *BankCard) Validate() error {
 	if !b.IsValid() {
-		return errors.New("card number is invalid")
+
+		return ErrorInvalidBankCardNumber
 	}
 	return nil
 }
