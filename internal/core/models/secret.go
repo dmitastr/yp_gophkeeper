@@ -1,7 +1,6 @@
 package models
 
 import (
-	"errors"
 	"time"
 )
 
@@ -30,7 +29,7 @@ func (st *SecretTypeValue) Set(value string) error {
 	case PASSWORD, TEXT, BANK_CARD, BINARY:
 		*st.Value = SecretType(value)
 	default:
-		return errors.New("invalid secret type")
+		return ErrorSecretTypeNotFound
 	}
 	return nil
 }

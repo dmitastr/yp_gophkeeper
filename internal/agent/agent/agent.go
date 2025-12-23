@@ -1,8 +1,8 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 
@@ -23,13 +23,13 @@ type ConnParams struct {
 }
 
 type IAgent interface {
-	Authenticate(username, password string, isNewUser bool, params *ConnParams) error
-	Ping(params *ConnParams) error
-	AddSecret(secret *requests.SecretRequest, params *ConnParams) error
-	UpdateSecret(secretRequest *requests.SecretRequest, params *ConnParams) error
-	DeleteSecret(secretID int, params *ConnParams) error
-	GetAllSecrets(params *ConnParams) ([]models.SecretInfo, error)
-	GetSecret(secretID int, params *ConnParams) (*models.Secret, error)
+	Authenticate(ctx context.Context, username, password string, isNewUser bool, params *ConnParams) error
+	Ping(ctx context.Context, params *ConnParams) error
+	AddSecret(ctx context.Context, secretRequest *requests.SecretRequest, params *ConnParams) error
+	UpdateSecret(ctx context.Context, secretRequest *requests.SecretRequest, params *ConnParams) error
+	DeleteSecret(ctx context.Context, secretID int, params *ConnParams) error
+	GetAllSecrets(ctx context.Context, params *ConnParams) ([]models.SecretInfo, error)
+	GetSecret(ctx context.Context, secretID int, params *ConnParams) (*models.Secret, error)
 	ReadSecretFromFile(file string) (*requests.SecretRequest, error)
 	WriteSecretToFile(content []byte, file string) error
 	ParseInput(input, fileName, comment string, secretType models.SecretType) (*requests.SecretRequest, error)
@@ -52,9 +52,9 @@ func NewAgent(log logger.ILogger) IAgent {
 	return a
 }
 
-func (a *Agent) Authenticate(username, password string, isNewUser bool, params *ConnParams) error {
+func (a *Agent) Authenticate(ctx context.Context, username, password string, isNewUser bool, params *ConnParams) error {
 	if username == "" || password == "" {
-		return errors.New("username and Password cannot be empty")
+		return ErrorEmptyAuthData
 	}
 
 	req := &requests.AuthRequest{
@@ -63,7 +63,7 @@ func (a *Agent) Authenticate(username, password string, isNewUser bool, params *
 		IsNewUser: isNewUser,
 	}
 
-	token, err := a.connClient.Authenticate(req, params.Address)
+	token, err := a.connClient.Authenticate(ctx, req, params.Address)
 	if err != nil {
 		return err
 	}
@@ -84,8 +84,8 @@ func (a *Agent) Authenticate(username, password string, isNewUser bool, params *
 	return nil
 }
 
-func (a *Agent) Ping(params *ConnParams) error {
-	err := a.connClient.Ping(params.Token, params.Address)
+func (a *Agent) Ping(ctx context.Context, params *ConnParams) error {
+	err := a.connClient.Ping(ctx, params.Token, params.Address)
 	if err != nil {
 		return fmt.Errorf("error pinging agent: %s", err)
 	}
@@ -93,15 +93,15 @@ func (a *Agent) Ping(params *ConnParams) error {
 
 }
 
-func (a *Agent) AddSecret(secretRequest *requests.SecretRequest, params *ConnParams) error {
-	if err := a.connClient.AddSecret(params.Token, params.Address, secretRequest); err != nil {
+func (a *Agent) AddSecret(ctx context.Context, secretRequest *requests.SecretRequest, params *ConnParams) error {
+	if err := a.connClient.AddSecret(ctx, params.Token, params.Address, secretRequest); err != nil {
 		return fmt.Errorf("error adding secretRequest: %s", err)
 	}
 	return nil
 }
 
-func (a *Agent) GetAllSecrets(params *ConnParams) ([]models.SecretInfo, error) {
-	secret, err := a.connClient.GetAllSecrets(params.Token, params.Address)
+func (a *Agent) GetAllSecrets(ctx context.Context, params *ConnParams) ([]models.SecretInfo, error) {
+	secret, err := a.connClient.GetAllSecrets(ctx, params.Token, params.Address)
 	if err != nil {
 		a.Error("error getting all secrets: %s", zap.Error(err))
 		return nil, err
@@ -109,8 +109,8 @@ func (a *Agent) GetAllSecrets(params *ConnParams) ([]models.SecretInfo, error) {
 	return secret, nil
 }
 
-func (a *Agent) GetSecret(secretID int, params *ConnParams) (*models.Secret, error) {
-	secret, err := a.connClient.GetSecret(params.Token, params.Address, secretID)
+func (a *Agent) GetSecret(ctx context.Context, secretID int, params *ConnParams) (*models.Secret, error) {
+	secret, err := a.connClient.GetSecret(ctx, params.Token, params.Address, secretID)
 	if err != nil {
 		a.Error("error getting secret: %s", zap.Error(err), zap.Int("secretID", secretID))
 
@@ -119,16 +119,16 @@ func (a *Agent) GetSecret(secretID int, params *ConnParams) (*models.Secret, err
 	return secret, nil
 }
 
-func (a *Agent) UpdateSecret(secretRequest *requests.SecretRequest, params *ConnParams) error {
-	if err := a.connClient.UpdateSecret(params.Token, params.Address, secretRequest); err != nil {
+func (a *Agent) UpdateSecret(ctx context.Context, secretRequest *requests.SecretRequest, params *ConnParams) error {
+	if err := a.connClient.AddSecret(ctx, params.Token, params.Address, secretRequest); err != nil {
 		return fmt.Errorf("error adding secret: %s", err)
 	}
 	return nil
 }
 
-func (a *Agent) DeleteSecret(secretID int, params *ConnParams) error {
+func (a *Agent) DeleteSecret(ctx context.Context, secretID int, params *ConnParams) error {
 
-	if err := a.connClient.DeleteSecret(params.Token, params.Address, secretID); err != nil {
+	if err := a.connClient.DeleteSecret(ctx, params.Token, params.Address, secretID); err != nil {
 		return fmt.Errorf("error deleting secret: %s", err)
 	}
 	return nil

@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/url"
@@ -15,20 +16,20 @@ type RequestBuilder struct {
 	compressor compression.ICompressor
 }
 
-func NewRequestBuilder(method, baseURL, suffix string) (*RequestBuilder, error) {
+func NewRequestBuilder(ctx context.Context, method, baseURL, suffix string) (*RequestBuilder, error) {
 	path, err := url.JoinPath(baseURL, suffix)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := retryablehttp.NewRequest(method, path, nil)
+	req, err := retryablehttp.NewRequestWithContext(ctx, method, path, nil)
 	if err != nil {
 		return nil, err
 	}
 	return &RequestBuilder{req: req, compressor: compression.NewCompressor()}, nil
 }
 
-func (r *RequestBuilder) WithBody(body interface{}) *RequestBuilder {
+func (r *RequestBuilder) WithBody(body any) *RequestBuilder {
 	data, err := json.Marshal(body)
 	if err != nil {
 		panic(err)

@@ -7,7 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"gophkeep/internal/config"
-	"gophkeep/internal/core/models"
 	"gophkeep/internal/core/requests"
 	"gophkeep/internal/domain/service"
 )
@@ -56,13 +55,7 @@ func (h *SecretsHandlerImpl) AddSecret(ctx *gin.Context) {
 
 	h.cfg.Logger().Info("Add secret endpoint called", zap.String("type", string(request.SecretType)), zap.String("comment", request.Comment))
 
-	secret := models.Secret{
-		Type:          request.SecretType,
-		Content:       request.Body,
-		ContentString: request.BodyString,
-		Comment:       request.Comment,
-	}
-	if err := h.serviceProvider.AddSecret(ctx, &secret); err != nil {
+	if err := h.serviceProvider.AddSecret(ctx, &request); err != nil {
 		h.cfg.Logger().Error(err.Error())
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -115,13 +108,7 @@ func (h *SecretsHandlerImpl) UpdateSecret(ctx *gin.Context) {
 
 	h.cfg.Logger().Info("Update secret endpoint called", zap.String("type", string(request.SecretType)), zap.Int("secretID", secretID))
 
-	secret := &models.Secret{
-		ID:      secretID,
-		Type:    request.SecretType,
-		Content: request.Body,
-		Comment: request.Comment,
-	}
-	if err := h.serviceProvider.UpdateSecret(ctx, secret); err != nil {
+	if err := h.serviceProvider.UpdateSecret(ctx, &request); err != nil {
 		h.cfg.Logger().Error(err.Error())
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

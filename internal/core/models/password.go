@@ -1,7 +1,5 @@
 package models
 
-import "errors"
-
 type Password struct {
 	ID       int    `json:"secret_id,omitempty"`
 	Login    string `json:"login"`
@@ -11,7 +9,7 @@ type Password struct {
 
 func (p *Password) Validate() error {
 	if p.Login == "" || p.Password == "" {
-		return errors.New("login or password is empty")
+		return ErrorEmptyAuthData
 	}
 	return nil
 }

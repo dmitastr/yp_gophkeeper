@@ -36,7 +36,7 @@ func NewLoginCmd(deps agent.RootDeps) *cobra.Command {
 			password := string(bytePassword)
 
 			connParams := &agent.ConnParams{Address: address, Key: key}
-			if err := deps.NewAgent().Authenticate(username, password, false, connParams); err != nil {
+			if err := deps.NewAgent().Authenticate(cmd.Context(), username, password, false, connParams); err != nil {
 				return fmt.Errorf("authentication failed: %w", err)
 			}
 			return nil

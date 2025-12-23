@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,14 +15,13 @@ import (
 )
 
 type IClient interface {
-	Authenticate(body *requests.AuthRequest, address string) (*string, error)
-	Ping(bearerToken string, address string) error
-	AddPassword(bearerToken, address, login, password string) error
-	AddSecret(bearerToken, address string, body *requests.SecretRequest) error
-	GetSecret(bearerToken, address string, secretID int) (*models.Secret, error)
-	GetAllSecrets(bearerToken, address string) ([]models.SecretInfo, error)
-	UpdateSecret(bearerToken, address string, body *requests.SecretRequest) error
-	DeleteSecret(bearerToken, address string, secretID int) error
+	Authenticate(ctx context.Context, body *requests.AuthRequest, address string) (*string, error)
+	Ping(ctx context.Context, bearerToken string, address string) error
+	AddPassword(ctx context.Context, bearerToken, address, login, password string) error
+	AddSecret(ctx context.Context, bearerToken, address string, body *requests.SecretRequest) error
+	GetSecret(ctx context.Context, bearerToken, address string, secretID int) (*models.Secret, error)
+	GetAllSecrets(ctx context.Context, bearerToken, address string) ([]models.SecretInfo, error)
+	DeleteSecret(ctx context.Context, bearerToken, address string, secretID int) error
 }
 
 type Client struct {
@@ -38,12 +38,12 @@ func NewClient() IClient {
 	return &Client{client: httpClient}
 }
 
-func (c *Client) Authenticate(body *requests.AuthRequest, address string) (*string, error) {
-	endpoint := "login"
+func (c *Client) Authenticate(ctx context.Context, body *requests.AuthRequest, address string) (*string, error) {
+	endpoint := "/api/login"
 	if body.IsNewUser {
-		endpoint = "auth"
+		endpoint = "/api/auth"
 	}
-	reqBuilder, err := NewRequestBuilder(http.MethodPost, address, "/api/"+endpoint)
+	reqBuilder, err := NewRequestBuilder(ctx, http.MethodPost, address, endpoint)
 
 	if err != nil {
 		return nil, err
@@ -66,8 +66,8 @@ func (c *Client) Authenticate(body *requests.AuthRequest, address string) (*stri
 	return &result.Token, nil
 }
 
-func (c *Client) Ping(bearerToken string, address string) error {
-	reqBuilder, err := NewRequestBuilder(http.MethodGet, address, "/api/ping")
+func (c *Client) Ping(ctx context.Context, bearerToken string, address string) error {
+	reqBuilder, err := NewRequestBuilder(ctx, http.MethodPost, address, "/api/ping")
 	if err != nil {
 		return err
 	}
@@ -89,9 +89,9 @@ func (c *Client) Ping(bearerToken string, address string) error {
 	return nil
 }
 
-func (c *Client) AddPassword(bearerToken, address, login, password string) error {
+func (c *Client) AddPassword(ctx context.Context, bearerToken, address, login, password string) error {
 	body := &requests.PasswordRequest{Login: login, Password: password}
-	reqBuilder, err := NewRequestBuilder(http.MethodPost, address, "/api/secrets/passwords")
+	reqBuilder, err := NewRequestBuilder(ctx, http.MethodPost, address, "/api/passwords")
 	if err != nil {
 		return fmt.Errorf("error creating request: %w", err)
 	}
@@ -109,20 +109,18 @@ func (c *Client) AddPassword(bearerToken, address, login, password string) error
 	return nil
 }
 
-func (c *Client) AddSecret(bearerToken, address string, body *requests.SecretRequest) error {
-	reqBuilder, err := NewRequestBuilder(http.MethodPost, address, "/api/secrets")
+func (c *Client) AddSecret(ctx context.Context, bearerToken, address string, body *requests.SecretRequest) error {
+	endpointPath := "/api/secrets"
+	if body.ID != nil {
+		endpointPath += fmt.Sprintf("/%d", *body.ID)
+	}
+
+	reqBuilder, err := NewRequestBuilder(ctx, http.MethodPost, address, endpointPath)
 	if err != nil {
 		return fmt.Errorf("error creating request: %w", err)
 	}
 
 	reqBuilder = reqBuilder.WithBearer(bearerToken).WithBody(body)
-
-	// switch body.SecretType {
-	// case models.PASSWORD, models.BANK_CARD:
-	// 	reqBuilder = reqBuilder.WithBody(body)
-	// default:
-	// 	reqBuilder = reqBuilder.WithRawBody(body.Body)
-	// }
 
 	req := reqBuilder.Build()
 
@@ -138,8 +136,10 @@ func (c *Client) AddSecret(bearerToken, address string, body *requests.SecretReq
 	return nil
 }
 
-func (c *Client) GetAllSecrets(bearerToken, address string) ([]models.SecretInfo, error) {
-	reqBuilder, err := NewRequestBuilder(http.MethodGet, address, "/api/secrets")
+func (c *Client) GetAllSecrets(ctx context.Context, bearerToken, address string) ([]models.SecretInfo, error) {
+	endpointPath := "/api/secrets"
+
+	reqBuilder, err := NewRequestBuilder(ctx, http.MethodGet, address, endpointPath)
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}
@@ -160,8 +160,10 @@ func (c *Client) GetAllSecrets(bearerToken, address string) ([]models.SecretInfo
 	return secrets.Secrets, nil
 }
 
-func (c *Client) GetSecret(bearerToken, address string, secretID int) (*models.Secret, error) {
-	reqBuilder, err := NewRequestBuilder(http.MethodGet, address, fmt.Sprintf("/api/secrets/%d", secretID))
+func (c *Client) GetSecret(ctx context.Context, bearerToken, address string, secretID int) (*models.Secret, error) {
+	endpointPath := fmt.Sprintf("/api/secrets/%d", secretID)
+
+	reqBuilder, err := NewRequestBuilder(ctx, http.MethodGet, address, endpointPath)
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}
@@ -185,36 +187,10 @@ func (c *Client) GetSecret(bearerToken, address string, secretID int) (*models.S
 	return secret.Secret, nil
 }
 
-func (c *Client) UpdateSecret(bearerToken, address string, body *requests.SecretRequest) error {
-	reqBuilder, err := NewRequestBuilder(http.MethodPut, address, fmt.Sprintf("/api/secrets/%d", body.ID))
-	if err != nil {
-		return fmt.Errorf("error creating request: %w", err)
-	}
+func (c *Client) DeleteSecret(ctx context.Context, bearerToken, address string, secretID int) error {
+	endpointPath := fmt.Sprintf("/api/secrets/%d", secretID)
 
-	reqBuilder = reqBuilder.WithBearer(bearerToken)
-
-	switch body.SecretType {
-	case models.PASSWORD, models.BANK_CARD:
-		reqBuilder = reqBuilder.WithBody(body)
-	default:
-		reqBuilder = reqBuilder.WithRawBody(body.Body)
-	}
-
-	req := reqBuilder.Build()
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("error updating secret: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("bad status: %s", resp.Status)
-	}
-
-	return nil
-}
-
-func (c *Client) DeleteSecret(bearerToken, address string, secretID int) error {
-	reqBuilder, err := NewRequestBuilder(http.MethodDelete, address, fmt.Sprintf("/api/secrets/%d", secretID))
+	reqBuilder, err := NewRequestBuilder(ctx, http.MethodDelete, address, endpointPath)
 	if err != nil {
 		return fmt.Errorf("error creating request: %w", err)
 	}

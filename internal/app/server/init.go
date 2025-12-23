@@ -9,6 +9,7 @@ import (
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 	"gophkeep/internal/config"
+	"gophkeep/internal/datasources"
 	"gophkeep/internal/datasources/postgresdb"
 	"gophkeep/internal/domain/service"
 	"gophkeep/internal/presentation/handlers"
@@ -23,16 +24,18 @@ type IApp interface {
 type App struct {
 	cfgProvider config.ConfigProvider
 	server      *http.Server
+	db          datasources.Datasource
 }
 
 func NewApp(ctx context.Context, cfg config.ConfigProvider) (*App, error) {
-	app := &App{cfgProvider: cfg}
-	router := gin.Default()
-
-	db, err := postgresdb.NewPostgresStorage(context.TODO(), cfg)
+	db, err := postgresdb.NewPostgresStorage(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
+
+	app := &App{cfgProvider: cfg, db: db}
+
+	router := gin.Default()
 
 	serviceProvider := service.NewService(cfg, db)
 	handlersProvider := handlers.NewHandlersProvider(cfg, serviceProvider)
@@ -64,7 +67,12 @@ func (app *App) Run() error {
 }
 
 func (app *App) Stop(ctx context.Context) error {
-	return app.server.Shutdown(ctx)
+	shutdownCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	_ = app.db.Close()
+	return app.server.Shutdown(shutdownCtx)
+
 }
 
 func (app *App) registerHandlers(router *gin.Engine, h handlers.HandlersProvider, m middleware.MiddlewareProvider) error {

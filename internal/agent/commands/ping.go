@@ -24,7 +24,7 @@ func NewPingCmd(deps agent.RootDeps) *cobra.Command {
 				Key:     viper.GetString("key"),
 			}
 
-			if err := deps.NewAgent().Ping(params); err != nil {
+			if err := deps.NewAgent().Ping(cmd.Context(), params); err != nil {
 				return fmt.Errorf("ping service error: %w", err)
 			}
 			return nil
