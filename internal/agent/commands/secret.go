@@ -67,7 +67,6 @@ func addSecretCmd(deps agent.RootDeps) *cobra.Command {
 		  gophkeep secrets add --input "text to add" --secret-type text`,
 		Args: cobra.OnlyValidArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			iAgent := deps.NewAgent()
 
 			secretType := viper.GetString("secret-type")
 			input := viper.GetString("input")
@@ -77,6 +76,8 @@ func addSecretCmd(deps agent.RootDeps) *cobra.Command {
 			key := viper.GetString("key")
 			token := viper.GetString("token")
 			comment := viper.GetString("comment")
+
+			iAgent := deps.NewAgent(token)
 
 			secretRequest, err := iAgent.ParseInput(input, file, comment, models.SecretType(secretType))
 			if err != nil {
@@ -130,11 +131,12 @@ func getAllSecretsCmd(deps agent.RootDeps) *cobra.Command {
 		Long:  "List all secrets for user",
 		Short: "List secrets",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			iAgent := deps.NewAgent()
 
 			address := viper.GetString("address")
 			key := viper.GetString("key")
 			token := viper.GetString("token")
+
+			iAgent := deps.NewAgent(token)
 
 			connParams := &agent.ConnParams{Address: address, Key: key, Token: token}
 
@@ -162,13 +164,14 @@ func getSecretCmd(deps agent.RootDeps) *cobra.Command {
 		Long:  "Get secret by id",
 		Short: "Get secret",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			iAgent := deps.NewAgent()
 
 			address := viper.GetString("address")
 			key := viper.GetString("key")
 			token := viper.GetString("token")
 			secretID := viper.GetInt("get-secret.id")
 			output := viper.GetString("output")
+
+			iAgent := deps.NewAgent(token)
 
 			deps.Logger.Info("Get secret", zap.Int("secretID", secretID))
 
@@ -219,7 +222,6 @@ func updateSecretCmd(deps agent.RootDeps) *cobra.Command {
 
 		Short: "Secrets update command",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			iAgent := deps.NewAgent()
 
 			secretType := viper.GetString("update-secret.secret-type")
 			input := viper.GetString("update-secret.input")
@@ -230,6 +232,8 @@ func updateSecretCmd(deps agent.RootDeps) *cobra.Command {
 			address := viper.GetString("address")
 			key := viper.GetString("key")
 			token := viper.GetString("token")
+
+			iAgent := deps.NewAgent(token)
 
 			secretRequest, err := iAgent.ParseInput(input, file, comment, models.SecretType(secretType))
 			if err != nil {
@@ -289,12 +293,13 @@ func deleteSecretCmd(deps agent.RootDeps) *cobra.Command {
 
 		Short: "Secrets delete command",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			iAgent := deps.NewAgent()
 
 			address := viper.GetString("address")
 			key := viper.GetString("key")
 			token := viper.GetString("token")
 			secretID := viper.GetInt("delete-secret.id")
+
+			iAgent := deps.NewAgent(token)
 
 			deps.Logger.Info("Delete secret",
 				zap.Int("secretID", secretID),

@@ -25,6 +25,12 @@ func NewBearerValidator(cfg config.ConfigProvider, authService authservice.AuthS
 
 func (b *BearerValidatorImpl) VerifyJWT(c *gin.Context) {
 	bearerToken := c.Request.Header.Get("Authorization")
+	tokenParts := strings.Split(bearerToken, " ")
+	if len(tokenParts) != 2 {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+		b.cfg.Logger().Error("Invalid bearer token", zap.String("bearerToken", bearerToken))
+		return
+	}
 	reqToken := strings.Split(bearerToken, " ")[1]
 
 	claims, err := b.authService.VerifyJWT(reqToken)

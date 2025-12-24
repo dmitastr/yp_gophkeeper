@@ -5,6 +5,7 @@ go 1.25.5
 require (
 	github.com/gin-contrib/gzip v1.2.5
 	github.com/gin-gonic/gin v1.11.0
+	github.com/go-resty/resty/v2 v2.17.1
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/hashicorp/go-retryablehttp v0.7.8
@@ -15,6 +16,7 @@ require (
 	github.com/theplant/luhn v0.0.0-20170224032821-81a1a381387a
 	github.com/xianghuzhao/kdfcrypt v1.5.3
 	go.uber.org/zap v1.27.1
+	golang.org/x/net v0.47.0
 	golang.org/x/sync v0.18.0
 	golang.org/x/term v0.37.0
 )
@@ -60,7 +62,6 @@ require (
 	golang.org/x/arch v0.22.0 // indirect
 	golang.org/x/crypto v0.45.0 // indirect
 	golang.org/x/mod v0.29.0 // indirect
-	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
 	golang.org/x/tools v0.38.0 // indirect
