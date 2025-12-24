@@ -6,6 +6,6 @@ type RootDeps struct {
 	Logger logger.ILogger
 }
 
-func (r *RootDeps) NewAgent() IAgent {
-	return NewAgent(r.Logger)
+func (r *RootDeps) NewAgent(bearerToken string) IAgent {
+	return NewAgent(r.Logger, bearerToken)
 }

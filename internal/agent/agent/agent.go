@@ -42,9 +42,10 @@ type Agent struct {
 	secretValidator validation.IValidator
 }
 
-func NewAgent(log logger.ILogger) IAgent {
+func NewAgent(log logger.ILogger, bearerToken string) IAgent {
+	connClient := client.NewRestyClient(log, bearerToken)
 	a := &Agent{
-		connClient:      client.NewClient(),
+		connClient:      connClient,
 		fileReader:      filereader.NewFileInputReader(),
 		ILogger:         log,
 		secretValidator: validation.NewValidator(nil),
@@ -85,7 +86,7 @@ func (a *Agent) Authenticate(ctx context.Context, username, password string, isN
 }
 
 func (a *Agent) Ping(ctx context.Context, params *ConnParams) error {
-	err := a.connClient.Ping(ctx, params.Token, params.Address)
+	err := a.connClient.Ping(ctx, params.Address)
 	if err != nil {
 		return fmt.Errorf("error pinging agent: %s", err)
 	}
@@ -94,14 +95,14 @@ func (a *Agent) Ping(ctx context.Context, params *ConnParams) error {
 }
 
 func (a *Agent) AddSecret(ctx context.Context, secretRequest *requests.SecretRequest, params *ConnParams) error {
-	if err := a.connClient.AddSecret(ctx, params.Token, params.Address, secretRequest); err != nil {
+	if err := a.connClient.AddSecret(ctx, params.Address, secretRequest); err != nil {
 		return fmt.Errorf("error adding secretRequest: %s", err)
 	}
 	return nil
 }
 
 func (a *Agent) GetAllSecrets(ctx context.Context, params *ConnParams) ([]models.SecretInfo, error) {
-	secret, err := a.connClient.GetAllSecrets(ctx, params.Token, params.Address)
+	secret, err := a.connClient.GetAllSecrets(ctx, params.Address)
 	if err != nil {
 		a.Error("error getting all secrets: %s", zap.Error(err))
 		return nil, err
@@ -110,7 +111,7 @@ func (a *Agent) GetAllSecrets(ctx context.Context, params *ConnParams) ([]models
 }
 
 func (a *Agent) GetSecret(ctx context.Context, secretID int, params *ConnParams) (*models.Secret, error) {
-	secret, err := a.connClient.GetSecret(ctx, params.Token, params.Address, secretID)
+	secret, err := a.connClient.GetSecret(ctx, params.Address, secretID)
 	if err != nil {
 		a.Error("error getting secret: %s", zap.Error(err), zap.Int("secretID", secretID))
 
@@ -120,7 +121,7 @@ func (a *Agent) GetSecret(ctx context.Context, secretID int, params *ConnParams)
 }
 
 func (a *Agent) UpdateSecret(ctx context.Context, secretRequest *requests.SecretRequest, params *ConnParams) error {
-	if err := a.connClient.AddSecret(ctx, params.Token, params.Address, secretRequest); err != nil {
+	if err := a.connClient.AddSecret(ctx, params.Address, secretRequest); err != nil {
 		return fmt.Errorf("error adding secret: %s", err)
 	}
 	return nil
@@ -128,7 +129,7 @@ func (a *Agent) UpdateSecret(ctx context.Context, secretRequest *requests.Secret
 
 func (a *Agent) DeleteSecret(ctx context.Context, secretID int, params *ConnParams) error {
 
-	if err := a.connClient.DeleteSecret(ctx, params.Token, params.Address, secretID); err != nil {
+	if err := a.connClient.DeleteSecret(ctx, params.Address, secretID); err != nil {
 		return fmt.Errorf("error deleting secret: %s", err)
 	}
 	return nil
