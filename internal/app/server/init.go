@@ -77,6 +77,8 @@ func (app *App) Stop(ctx context.Context) error {
 
 func (app *App) registerHandlers(router *gin.Engine, h handlers.HandlersProvider, m middleware.MiddlewareProvider) error {
 	router.Use(gzip.Gzip(gzip.DefaultCompression, gzip.WithDecompressFn(gzip.DefaultDecompressHandle)))
+	router.Use(m.SizeCheck)
+
 	apiPath := router.Group("/api")
 
 	apiPath.POST(`/login`, h.LoginUser)
