@@ -17,12 +17,13 @@ type IValidator interface {
 	Validate(secretContent string, secretType models.SecretType, isEncoded bool) ([]byte, error)
 }
 
+// Validator check if secret is correct
 type Validator struct {
 	secretRegistry map[models.SecretType]SecretHandler
 	cfg            config.ConfigProvider
 }
 
-func NewValidator(cfg config.ConfigProvider) IValidator {
+func NewValidator(cfg config.ConfigProvider) *Validator {
 	v := &Validator{cfg: cfg}
 	v.secretRegistry = map[models.SecretType]SecretHandler{
 		models.PASSWORD:  v.parsePasswordSecret,
@@ -72,6 +73,7 @@ func (v *Validator) decode(message string) ([]byte, error) {
 	return content, nil
 }
 
+// Validate decode bytes from string and selects handler based on secrets type
 func (v *Validator) Validate(secretContent string, secretType models.SecretType, isEncoded bool) ([]byte, error) {
 	var content []byte
 	var err error
