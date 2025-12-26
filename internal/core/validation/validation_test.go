@@ -3,7 +3,6 @@ package validation
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -12,26 +11,9 @@ import (
 	"gophkeep/internal/config"
 	"gophkeep/internal/core/models"
 	mockconfig "gophkeep/internal/mocks/config"
-	mock_logger "gophkeep/internal/mocks/logger"
+	mocklogger "gophkeep/internal/mocks/logger"
+	testdata "gophkeep/internal/mocks/test_data"
 )
-
-var passwordTestData = &models.Password{
-	Login:    "login",
-	Password: "password",
-	Comment:  "comment",
-}
-
-var bankcardTestData = &models.BankCard{
-	Number:         5120350100064537,
-	ExpiryData:     "03/30",
-	CardholderName: "Ivan",
-	CVC:            "000",
-	Comment:        "comment",
-}
-
-var textTestData = []byte("text secret")
-
-var binaryTestData = []byte("binary secret")
 
 type ValidatorTestSuite struct {
 	suite.Suite
@@ -39,28 +21,20 @@ type ValidatorTestSuite struct {
 	validator *Validator
 	ctx       context.Context
 	ctrl      *gomock.Controller
-	testData  map[models.SecretType][]byte
+	testData  testdata.TestData
 }
 
 func (s *ValidatorTestSuite) SetupSuite() {
 	ctrl := gomock.NewController(s.T())
 	s.ctrl = ctrl
 
-	mockLogger := mock_logger.NewMockILogger(ctrl)
+	mockLogger := mocklogger.NewMockILogger(ctrl)
 	mockLogger.EXPECT().Info(gomock.Any(), gomock.Any()).AnyTimes()
 
 	mockCfg := mockconfig.NewMockConfigProvider(ctrl)
 	mockCfg.EXPECT().Logger().AnyTimes().Return(mockLogger).AnyTimes()
 
-	s.testData = make(map[models.SecretType][]byte)
-	passwordData, _ := json.Marshal(passwordTestData)
-	s.testData[models.PASSWORD] = passwordData
-	bankcardData, _ := json.Marshal(bankcardTestData)
-	s.testData[models.BANK_CARD] = bankcardData
-
-	s.testData[models.TEXT] = textTestData
-	s.testData[models.BINARY] = binaryTestData
-
+	s.testData = testdata.GetTestData()
 	s.validator = NewValidator(mockCfg)
 
 }
@@ -233,7 +207,7 @@ func (s *ValidatorTestSuite) TestValidator_parseTextSecret() {
 		{
 			name:    "valid input",
 			args:    args{content: s.testData[models.TEXT]},
-			want:    textTestData,
+			want:    testdata.TextTestData,
 			wantErr: false,
 		},
 		{
