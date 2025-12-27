@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -17,6 +18,14 @@ import (
 	"go.uber.org/zap"
 	"gophkeep/internal/config"
 )
+
+func resolveMigrationsPath(dir string) (string, error) {
+	if filepath.IsAbs(dir) {
+		return "file://" + dir, nil
+	}
+
+	return "file://" + dir, nil
+}
 
 type PostgresStorage struct {
 	pool *pgxpool.Pool
@@ -39,8 +48,12 @@ func NewPostgresStorage(ctx context.Context, cfg config.ConfigProvider) (*Postgr
 	}
 	cfg.Logger().Info("Database connection established successfully")
 
+	migrationPath, err := resolveMigrationsPath(cfg.GetConfig().MigrationsDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve migrations path: %w", err)
+	}
 	m, err := migrate.New(
-		"file://database/migrations",
+		migrationPath,
 		cfg.GetConfig().DBConnStr)
 	if err != nil {
 		return nil, err
@@ -112,14 +125,15 @@ func (p *PostgresStorage) GetPassword(ctx context.Context, login string, passwor
 	return nil, nil
 }
 
-func (p *PostgresStorage) AddSecret(ctx context.Context, userID models.UserID, secretType models.SecretType, secret []byte, comment string) error {
+func (p *PostgresStorage) AddSecret(ctx context.Context, userID models.UserID, secretType models.SecretType, secret []byte, comment string, createdAt time.Time) (*int, error) {
 	p.cfg.Logger().Info("AddSecret called", zap.String("secretType", string(secretType)), zap.Int("userID", int(userID)))
 	query := `INSERT INTO secrets (user_id, secret_type, secret, created_at, updated_at, comment) 
-				VALUES (@user_id, @secret_type, @secret, @created_at, @updated_at, @comment)`
+				VALUES (@user_id, @secret_type, @secret, @created_at, @updated_at, @comment)
+				RETURNING id`
 
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("could not start transaction: %w", err)
+		return nil, fmt.Errorf("could not start transaction: %w", err)
 	}
 
 	args := pgx.NamedArgs{
@@ -127,25 +141,27 @@ func (p *PostgresStorage) AddSecret(ctx context.Context, userID models.UserID, s
 		"secret_type": secretType,
 		"comment":     comment,
 		"user_id":     userID,
-		"updated_at":  time.Now(),
-		"created_at":  time.Now(),
+		"updated_at":  createdAt,
+		"created_at":  createdAt,
 	}
-	if _, err := tx.Exec(ctx, query, args); err != nil {
+
+	var secretID int
+	if err := tx.QueryRow(ctx, query, args).Scan(&secretID); err != nil {
 		tx.Rollback(ctx)
-		return fmt.Errorf("could not add secret: %w", err)
+		return nil, fmt.Errorf("could not add secret: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
 		tx.Rollback(ctx)
-		return fmt.Errorf("could not commit transaction: %w", err)
+		return nil, fmt.Errorf("could not commit transaction: %w", err)
 	}
 
-	return nil
+	return &secretID, nil
 }
 
 func (p *PostgresStorage) GetSecret(ctx context.Context, secretID int, userID models.UserID) (*models.Secret, error) {
 	p.cfg.Logger().Info("GetSecret called", zap.Int("userID", int(userID)), zap.Int("secretID", secretID))
-	query := `SELECT id, secret_type, created_at, secret, comment FROM secrets 
+	query := `SELECT id, secret_type, created_at, secret, comment, updated_at FROM secrets 
             WHERE user_id = $1 AND id = $2`
 
 	tx, err := p.pool.Begin(ctx)
@@ -154,7 +170,7 @@ func (p *PostgresStorage) GetSecret(ctx context.Context, secretID int, userID mo
 	}
 
 	var secret models.Secret
-	err = tx.QueryRow(ctx, query, userID, secretID).Scan(&secret.ID, &secret.Type, &secret.CreatedAt, &secret.Content, &secret.Comment)
+	err = tx.QueryRow(ctx, query, userID, secretID).Scan(&secret.ID, &secret.Type, &secret.CreatedAt, &secret.Content, &secret.Comment, &secret.UpdatedAt)
 	if err != nil {
 		tx.Rollback(ctx)
 		return nil, fmt.Errorf("could not get secret: %w", err)
@@ -198,14 +214,12 @@ func (p *PostgresStorage) UpdateSecret(ctx context.Context, secret *models.Secre
 		return fmt.Errorf("could not start transaction: %w", err)
 	}
 
-	now := time.Now()
-
 	args := pgx.NamedArgs{
 		"secret":     secret.Content,
 		"comment":    secret.Comment,
 		"user_id":    userID,
 		"secret_id":  secret.ID,
-		"updated_at": now,
+		"updated_at": secret.UpdatedAt,
 	}
 	if _, err := tx.Exec(ctx, query, args); err != nil {
 		tx.Rollback(ctx)
@@ -249,4 +263,8 @@ func (p *PostgresStorage) DeleteSecret(ctx context.Context, secretID int, userID
 func (p *PostgresStorage) Close() error {
 	p.pool.Close()
 	return nil
+}
+
+func (p *PostgresStorage) Ping(ctx context.Context) error {
+	return p.pool.Ping(ctx)
 }

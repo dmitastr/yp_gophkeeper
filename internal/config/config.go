@@ -21,10 +21,11 @@ type configProvider struct {
 }
 
 type Config struct {
-	Address   string `json:"address" env:"ADDRESS" mapstructure:"address"`
-	DBConnStr string `json:"db_conn_str" env:"DBCONNSTR" mapstructure:"db-conn-str"`
-	Key       string `json:"key" env:"KEY" mapstructure:"key"`
-	MaxSize   int64  `json:"max_size" env:"MAX_SIZE" mapstructure:"max-size"`
+	Address       string `json:"address" env:"ADDRESS" mapstructure:"address"`
+	DBConnStr     string `json:"db_conn_str" env:"DBCONNSTR" mapstructure:"db-conn-str"`
+	Key           string `json:"key" env:"KEY" mapstructure:"key"`
+	MaxSize       int64  `json:"max_size" env:"MAX_SIZE" mapstructure:"max-size"`
+	MigrationsDir string `json:"migrations_dir" env:"MIGRATIONS_DIR" mapstructure:"migrations-dir"`
 }
 
 func NewConfig() (ConfigProvider, error) {
@@ -38,6 +39,7 @@ func NewConfig() (ConfigProvider, error) {
 	flagSet.StringP("db-conn-str", "d", "", "postgres connection url")
 	flagSet.StringP("key", "k", "", "key for encrypting data")
 	flagSet.Int64P("max-size", "m", maxSizeDefault, "key for encrypting data")
+	flagSet.StringP("migrations-dir", "g", "database/migrations", "path of migrations files")
 
 	if err := flagSet.Parse(os.Args[1:]); err != nil {
 		return nil, fmt.Errorf("error parsing flags: %w", err)
@@ -52,6 +54,7 @@ func NewConfig() (ConfigProvider, error) {
 	_ = viper.BindEnv("db-conn-str", "DBCONNSTR")
 	_ = viper.BindEnv("key", "KEY")
 	_ = viper.BindEnv("max-size", "MAX_SIZE")
+	_ = viper.BindEnv("migrations-dir", "MIGRATIONS_DIR")
 
 	if cfgPath := viper.GetString("configProvider"); cfgPath != "" {
 		viper.SetConfigFile(cfgPath)

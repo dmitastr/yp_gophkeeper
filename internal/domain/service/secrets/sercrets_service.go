@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"go.uber.org/zap"
 	"gophkeep/internal/config"
@@ -21,6 +22,7 @@ type SecretsService interface {
 	GetSecret(ctx context.Context, secretID int) (*models.Secret, error)
 	UpdateSecret(ctx context.Context, object *requests.SecretRequest) error
 	DeleteSecret(ctx context.Context, secretID int) error
+	Ping(ctx context.Context) error
 }
 
 type secretsService struct {
@@ -62,7 +64,7 @@ func (s secretsService) AddPassword(ctx context.Context, object *requests.Passwo
 		return fmt.Errorf("encode secret: userID not found in context")
 	}
 
-	if err := s.db.AddSecret(ctx, userID, models.PASSWORD, secret, ""); err != nil {
+	if _, err := s.db.AddSecret(ctx, userID, models.PASSWORD, secret, "", time.Now()); err != nil {
 		return fmt.Errorf("add secret: %w", err)
 	}
 
@@ -93,7 +95,7 @@ func (s secretsService) AddSecret(ctx context.Context, object *requests.SecretRe
 		return fmt.Errorf("encrypt secret error: %w", err)
 	}
 
-	if err := s.db.AddSecret(ctx, userID, secret.Type, secretEncrypted, secret.Comment); err != nil {
+	if _, err := s.db.AddSecret(ctx, userID, secret.Type, secretEncrypted, secret.Comment, time.Now()); err != nil {
 		return fmt.Errorf("add secret: %w", err)
 	}
 
@@ -149,10 +151,11 @@ func (s secretsService) UpdateSecret(ctx context.Context, object *requests.Secre
 	}
 
 	secret := &models.Secret{
-		ID:      *object.ID,
-		Type:    object.SecretType,
-		Comment: object.Comment,
-		Content: secretEncrypted,
+		ID:        *object.ID,
+		Type:      object.SecretType,
+		Comment:   object.Comment,
+		Content:   secretEncrypted,
+		UpdatedAt: time.Now(),
 	}
 
 	if err := s.db.UpdateSecret(ctx, secret, userID); err != nil {
@@ -223,4 +226,11 @@ func (s secretsService) decrypt(secret []byte) (secretDecrypted []byte, err erro
 	}
 
 	return secretDecrypted, nil
+}
+
+func (s secretsService) Ping(ctx context.Context) error {
+	if err := s.db.Ping(ctx); err != nil {
+		return fmt.Errorf("ping database: %w", err)
+	}
+	return nil
 }

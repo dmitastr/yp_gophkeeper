@@ -11,8 +11,8 @@ import (
 	"gophkeep/internal/domain/service"
 )
 
+// SecretsHandler is an interface for http handlers for secrets
 type SecretsHandler interface {
-	AddPassword(ctx *gin.Context)
 	AddSecret(ctx *gin.Context)
 	GetAllSecrets(ctx *gin.Context)
 	GetSecret(ctx *gin.Context)
@@ -20,31 +20,18 @@ type SecretsHandler interface {
 	DeleteSecret(ctx *gin.Context)
 }
 
+// SecretsHandlerImpl implements [SecretsHandler]
 type SecretsHandlerImpl struct {
 	serviceProvider service.IService
 	cfg             config.ConfigProvider
 }
 
+// NewSecretsHandler creates new instance of [SecretsHandlerImpl]
 func NewSecretsHandler(cfg config.ConfigProvider, serviceProvider service.IService) *SecretsHandlerImpl {
 	return &SecretsHandlerImpl{serviceProvider: serviceProvider, cfg: cfg}
 }
 
-func (h *SecretsHandlerImpl) AddPassword(ctx *gin.Context) {
-	var request requests.PasswordRequestObject
-	if err := ctx.ShouldBindJSON(&request); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	if err := h.serviceProvider.AddPassword(ctx, &request); err != nil {
-		h.cfg.Logger().Error(err.Error())
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"message": "Password added successfully"})
-}
-
+// AddSecret handles requests for adding new secret
 func (h *SecretsHandlerImpl) AddSecret(ctx *gin.Context) {
 	var request requests.SecretRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {
@@ -64,6 +51,7 @@ func (h *SecretsHandlerImpl) AddSecret(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "Secret added successfully"})
 }
 
+// GetAllSecrets handles requests for getting all secrets
 func (h *SecretsHandlerImpl) GetAllSecrets(ctx *gin.Context) {
 	secrets, err := h.serviceProvider.GetAllSecrets(ctx)
 	if err != nil {
@@ -74,6 +62,7 @@ func (h *SecretsHandlerImpl) GetAllSecrets(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"secrets": secrets})
 }
 
+// GetSecret handles requests for getting a secret
 func (h *SecretsHandlerImpl) GetSecret(ctx *gin.Context) {
 	secretIDStr := ctx.Param("secretID")
 	secretID, err := strconv.Atoi(secretIDStr)
@@ -91,6 +80,7 @@ func (h *SecretsHandlerImpl) GetSecret(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"secret": secret})
 }
 
+// UpdateSecret handles requests for updating secret
 func (h *SecretsHandlerImpl) UpdateSecret(ctx *gin.Context) {
 	secretIDStr := ctx.Param("secretID")
 	secretID, err := strconv.Atoi(secretIDStr)
@@ -117,6 +107,7 @@ func (h *SecretsHandlerImpl) UpdateSecret(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "Secret updated successfully"})
 }
 
+// DeleteSecret handles requests for deleting secret
 func (h *SecretsHandlerImpl) DeleteSecret(ctx *gin.Context) {
 	secretIDStr := ctx.Param("secretID")
 	secretID, err := strconv.Atoi(secretIDStr)
