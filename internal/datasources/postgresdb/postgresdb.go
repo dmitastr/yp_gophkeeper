@@ -250,3 +250,7 @@ func (p *PostgresStorage) Close() error {
 	p.pool.Close()
 	return nil
 }
+
+func (p *PostgresStorage) Ping(ctx context.Context) error {
+	return p.pool.Ping(ctx)
+}

@@ -35,7 +35,6 @@ func (s *SecretHandlerTestSuite) SetupSuite() {
 	mockLogger.EXPECT().Info(gomock.Any(), gomock.Any()).AnyTimes()
 	mockLogger.EXPECT().Error(gomock.Any(), gomock.Any()).AnyTimes()
 
-	// var ss secrets.SecretsService
 	mockService := mockservice.NewMockIService(ctrl)
 	mockService.EXPECT().AddSecret(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	mockService.EXPECT().GetAllSecrets(gomock.Any()).Return(nil, nil).AnyTimes()

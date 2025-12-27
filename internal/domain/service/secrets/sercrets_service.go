@@ -21,6 +21,7 @@ type SecretsService interface {
 	GetSecret(ctx context.Context, secretID int) (*models.Secret, error)
 	UpdateSecret(ctx context.Context, object *requests.SecretRequest) error
 	DeleteSecret(ctx context.Context, secretID int) error
+	Ping(ctx context.Context) error
 }
 
 type secretsService struct {
@@ -223,4 +224,11 @@ func (s secretsService) decrypt(secret []byte) (secretDecrypted []byte, err erro
 	}
 
 	return secretDecrypted, nil
+}
+
+func (s secretsService) Ping(ctx context.Context) error {
+	if err := s.db.Ping(ctx); err != nil {
+		return fmt.Errorf("ping database: %w", err)
+	}
+	return nil
 }

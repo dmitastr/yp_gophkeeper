@@ -16,5 +16,6 @@ type Datasource interface {
 	UpdateSecret(ctx context.Context, secret *models.Secret, userID models.UserID) error
 	DeleteSecret(ctx context.Context, secretID int, userID models.UserID) error
 	GetAllSecrets(ctx context.Context, userID models.UserID) ([]models.SecretInfo, error)
+	Ping(ctx context.Context) error
 	Close() error
 }
