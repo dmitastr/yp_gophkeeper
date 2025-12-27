@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -17,6 +18,14 @@ import (
 	"go.uber.org/zap"
 	"gophkeep/internal/config"
 )
+
+func resolveMigrationsPath(dir string) (string, error) {
+	if filepath.IsAbs(dir) {
+		return "file://" + dir, nil
+	}
+
+	return "file://" + dir, nil
+}
 
 type PostgresStorage struct {
 	pool *pgxpool.Pool
@@ -39,8 +48,12 @@ func NewPostgresStorage(ctx context.Context, cfg config.ConfigProvider) (*Postgr
 	}
 	cfg.Logger().Info("Database connection established successfully")
 
+	migrationPath, err := resolveMigrationsPath(cfg.GetConfig().MigrationsDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve migrations path: %w", err)
+	}
 	m, err := migrate.New(
-		"file://database/migrations",
+		migrationPath,
 		cfg.GetConfig().DBConnStr)
 	if err != nil {
 		return nil, err
