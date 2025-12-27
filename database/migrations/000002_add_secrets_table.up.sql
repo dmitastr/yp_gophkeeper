@@ -7,8 +7,8 @@ CREATE TABLE IF NOT EXISTS secrets (
     user_id INTEGER,
     secret_type secret_type ,
     secret BYTEA,
-    created_at TIMESTAMP,
-    updated_at TIMESTAMP,
+    created_at TIMESTAMPTZ,
+    updated_at TIMESTAMP  WITH TIME ZONE,
     comment varchar(200)
 );
 

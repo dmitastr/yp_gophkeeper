@@ -42,6 +42,7 @@ type Secret struct {
 	Type          SecretType `json:"type" db:"secret_type"`
 	ID            int        `json:"id" db:"secret_id"`
 	CreatedAt     time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at" db:"updated_at"`
 	Content       []byte     `json:"content,omitempty" db:"secret"`
 	ContentString string     `json:"content_string,omitempty" db:"secret"`
 	Comment       string     `json:"comment,omitempty" db:"comment"`
